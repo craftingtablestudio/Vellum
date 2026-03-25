@@ -1,0 +1,24 @@
+{
+  "name": "Vellum",
+  "version": "0.2.6",
+  "type": "module",
+  "scripts": {
+    "bump": "np --no-cleanup --no-publish",
+    "test": "swift test --enable-swift-testing",
+    "postversion": "replace-regex --from=\"\\d+\\.\\d+\\.\\d+\" --to=\"$npm_package_version\" README.md && git add README.md && git commit -m \"chore: bump\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "np": "^10.2.0",
+    "replace-regex": "^0.0.4"
+  },
+  "funding": "https://github.com/sponsors/mesqueeb",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/craftingtablestudio/Vellum.git"
+  },
+  "homepage": "https://github.com/craftingtablestudio/Vellum#readme",
+  "bugs": "https://github.com/craftingtablestudio/Vellum/issues"
+}
