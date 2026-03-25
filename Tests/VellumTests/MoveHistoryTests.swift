@@ -133,6 +133,36 @@ struct AppendMoveTests {
   }
 }
 
+// MARK: - RestoreHistoryTests
+
+struct RestoreHistoryTests {
+  // Splicing backup.moves back in restores the full original history
+  @Test func restoreOriginalHistory_splicesBackupMovesBack() throws {
+    let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
+    let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
+    let moveC = mock.move(eid: "E1", target: .position([3, 0, 0]))
+    let moveD = mock.move(eid: "E1", target: .position([4, 0, 0]))
+    let moveE = mock.move(eid: "E1", target: .position([5, 0, 0]))
+    let moveNew = mock.move(eid: "E1", target: .position([9, 0, 0]))
+    var history = MoveHistory()
+    history.moves = [moveA, moveB, moveC, moveD, moveE]
+    history.moveNr = 2  // undid back to move 2
+
+    // Diverge — creates a backup of moves C, D, E
+    let appendResult = try history.appendMove(moveNew, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+    let backup = try #require(appendResult?.backupForDivergence)
+    #expect(history.moves.count == 3)  // A, B, New
+    #expect(backup.divergenceMoveNr == 2)
+    #expect(backup.moves.count == 3)  // C, D, E
+
+    // Restore
+    history.moves = history.moves.slice(0, backup.divergenceMoveNr) + backup.moves
+    history.moveNr = -1
+    #expect(history.moves.count == 5)
+    #expect(history.moves == [moveA, moveB, moveC, moveD, moveE])
+  }
+}
+
 // MARK: - BrowseHistoryTests · Average + Complex
 
 struct BrowseHistoryTests {
@@ -165,6 +195,32 @@ struct BrowseHistoryTests {
       #expect(movesAndNrs[0].newMoveNr == ActualMoveNr(1))
     } else {
       #expect(Bool(false), "Expected .animateMoves result from redo")
+    }
+  }
+
+  // `.stopAnimating` fires when the user acts mid-animation and the new target falls between
+  // `currentlyAnimating` and `animatingTowards`
+  // e.g. showMove 5→0 in progress (animatingTowards=0, currentlyAnimating=2), user taps redo
+  //      → newMoveNr = 0+1 = 1, which is between 2 and 0 → stopAt=1
+  @Test func browseHistory_stopAnimating_firesWhenNewTargetIsBetweenCurrentAndDestination() {
+    var history = MoveHistory()
+    history.moves = [
+      mock.move(eid: "E1", target: .position([1, 0, 0])),
+      mock.move(eid: "E1", target: .position([2, 0, 0])),
+      mock.move(eid: "E1", target: .position([3, 0, 0])),
+      mock.move(eid: "E1", target: .position([4, 0, 0])),
+      mock.move(eid: "E1", target: .position([5, 0, 0])),
+    ]
+    history.moveNr = -1
+    let result = history.browseHistory(
+      action: .redo,
+      animatingTowards: ActualMoveNr(0),
+      currentlyAnimating: ActualMoveNr(2)
+    )
+    if case .stopAnimating(let stopAt) = result {
+      #expect(stopAt == ActualMoveNr(1))
+    } else {
+      #expect(Bool(false), "Expected .stopAnimating")
     }
   }
 
