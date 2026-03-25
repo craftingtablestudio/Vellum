@@ -4,22 +4,14 @@ import PackageDescription
 
 let package = Package(
   name: "Vellum",
+  platforms: [.macOS(.v13), .iOS(.v16), .visionOS(.v1)],
   products: [.library(name: "Vellum", targets: ["Vellum"])],
   targets: [
-    .target(
-      name: "Vellum",
-      swiftSettings: [
-        .enableExperimentalFeature("StrictConcurrency"),
-        .enableUpcomingFeature("BareSlashRegexLiterals"),
-      ]
-    ),
+    .target(name: "Vellum", swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]),
     .testTarget(
       name: "VellumTests",
       dependencies: ["Vellum"],
-      swiftSettings: [
-        .enableExperimentalFeature("StrictConcurrency"),
-        .enableUpcomingFeature("BareSlashRegexLiterals"),
-      ]
+      swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
     ),
   ]
 )
