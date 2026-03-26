@@ -263,35 +263,45 @@ struct BrowseHistoryTests {
 struct MoveToPreviousCoreMovesTests {
   // Undoing a capture where neither piece has prior history reverts both to their initial states
   @Test func chess_revertCaptureBackToInitialState() {
-    let pawnCapturesRook = Move([
-      [
-        // black pawn moves to capture square
-        mock.coreMove(eid: "BP1", target: .position([1, 0, 0])),
-        // white rook is captured (side-effect: moves off its square)
-        mock.coreMove(eid: "WR1", target: .position([0, 0, 0.5])),
-      ]
+    let history = MoveHistory(moves: [
+      // unrelated prior move — confirms WP1 doesn't pollute the BP1/WR1 lookup
+      mock.move(eid: "WP1", target: .position([1, 0, 0])),
+      Move([
+        [
+          // black pawn moves to capture square
+          mock.coreMove(eid: "BP1", target: .position([1, 0, 0])),
+          // white rook is captured (side-effect: moves off its square)
+          mock.coreMove(eid: "WR1", target: .position([0, 0, 0.5])),
+        ]
+      ]),
     ])
-    // unrelated prior move — confirms WP1 doesn't pollute the BP1/WR1 lookup
-    let moveHistory: [Move] = [mock.move(eid: "WP1", target: .position([1, 0, 0]))]
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      pawnCapturesRook,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "WR1", revertToInitialState: true),
-          mock.coreMove(eid: "BP1", revertToInitialState: true),
-        ]
+        Move([
+          [
+            mock.coreMove(eid: "WR1", revertToInitialState: true),
+            mock.coreMove(eid: "BP1", revertToInitialState: true),
+          ]
+        ])
       ]
     )
   }
 
   // Undoing a move that followed a capture reverts the piece to its post-capture position
   @Test func chess_revertPawnBackToStateAfterCapture() {
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // white pawn moves
       mock.move(eid: "WP1", target: .position([1, 0, 0])),
       // black pawn captures rook by moving to A2 (side-effect: rook gets displaced to [1,0,0])
@@ -301,25 +311,32 @@ struct MoveToPreviousCoreMovesTests {
           mock.coreMove(eid: "WR1", target: .position([1, 0, 0])),
         ]
       ]),
-    ]
-
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
+      // black moves to another position
       mock.move(eid: "BP1", target: .position([1, 0, 0])),
-      searchThrough: moveHistory
-    )
+    ])
 
-    let pawnCapturesRook_reversed = mock.coreMove(
-      eid: "BP1",
-      target: .magnet("A2"),
-      revertToInitialState: true
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
-    #expect(reverseMoves == [[pawnCapturesRook_reversed]])
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
+
+    #expect(
+      reverseMoves == [
+        Move([[mock.coreMove(eid: "BP1", target: .magnet("A2"), revertToInitialState: true)]])
+      ]
+    )
   }
 
   // Undoing a subsequent move of a captured piece reverts it to the position it was moved to on capture
   @Test func chess_revertCapturedPieceBackToStateAfterCapture() {
     let POS_ROOK: SIMD3<Float> = [5, 0, 0]
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // black queen moves
       mock.move(eid: "BQ1", target: .position([1, 0, 0])),
       // black pawn captures rook (side-effect: rook moves to POS_ROOK)
@@ -328,52 +345,67 @@ struct MoveToPreviousCoreMovesTests {
           mock.coreMove(eid: "BP1", target: .position([1, 0, 0])),
           mock.coreMove(eid: "WR1", target: .position(POS_ROOK)),
         ]
-      ]),
-    ]
+      ]), mock.move(eid: "WR1", target: .position([1, 0, 0])),
+    ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      mock.move(eid: "WR1", target: .position([1, 0, 0])),
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
-    let rookGetsMoved_reversed = mock.coreMove(
-      eid: "WR1",
-      target: .position(POS_ROOK),
-      revertToInitialState: true
+    #expect(
+      reverseMoves == [
+        Move([[mock.coreMove(eid: "WR1", target: .position(POS_ROOK), revertToInitialState: true)]])
+      ]
     )
-    #expect(reverseMoves == [[rookGetsMoved_reversed]])
   }
 
   // Complex: undoing a Go capture — whites with no prior history revert to initial state with no target;
   // captures undo first (reverse chunk order), then the black stone placement
   @Test func go_revertCaptureMove_whitesHaveNoHistory() {
-    let blackMovesAndCaptures = Move([
-      [
-        // black stone places on the board
-        mock.coreMove(eid: "GoStoneBlack:UUID1", target: .position([1, 0, 0]))
-      ],
-      [
-        // surrounded white stones are captured — all go to the black player's bowl
-        mock.coreMove(eid: "GoStoneWhite:UUID1", target: .magnet("BowlLidBlack")),
-        mock.coreMove(eid: "GoStoneWhite:UUID2", target: .magnet("BowlLidBlack")),
-        mock.coreMove(eid: "GoStoneWhite:UUID3", target: .magnet("BowlLidBlack")),
-      ],
+    let history = MoveHistory(moves: [
+      // unrelated prior move — confirms UUID5 doesn't pollute the white-stone lookup
+      mock.move(eid: "Black:UUID5", target: .position([1, 0, 0])),
+      Move([
+        [
+          // black stone places on the board
+          mock.coreMove(eid: "Black:UUID1", target: .position([1, 0, 0]))
+        ],
+        [
+          // surrounded white stones are captured — all go to the black player's bowl
+          mock.coreMove(eid: "White:UUID1", target: .magnet("BowlLidBlack")),
+          mock.coreMove(eid: "White:UUID2", target: .magnet("BowlLidBlack")),
+          mock.coreMove(eid: "White:UUID3", target: .magnet("BowlLidBlack")),
+        ],
+      ]),
     ])
-    // unrelated prior move — confirms UUID5 doesn't pollute the white-stone lookup
-    let moveHistory: [Move] = [mock.move(eid: "GoStoneBlack:UUID5", target: .position([1, 0, 0]))]
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      blackMovesAndCaptures,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "GoStoneWhite:UUID3", revertToInitialState: true),
-          mock.coreMove(eid: "GoStoneWhite:UUID2", revertToInitialState: true),
-          mock.coreMove(eid: "GoStoneWhite:UUID1", revertToInitialState: true),
-        ], [mock.coreMove(eid: "GoStoneBlack:UUID1", revertToInitialState: true)],
+        Move([
+          [
+            mock.coreMove(eid: "White:UUID3", revertToInitialState: true),
+            mock.coreMove(eid: "White:UUID2", revertToInitialState: true),
+            mock.coreMove(eid: "White:UUID1", revertToInitialState: true),
+          ], [mock.coreMove(eid: "Black:UUID1", revertToInitialState: true)],
+        ])
       ]
     )
   }
@@ -381,115 +413,129 @@ struct MoveToPreviousCoreMovesTests {
   // Complex: undoing a Go capture — whites with a known prior position carry that last known target
   // when reverting, rather than falling back to `.unset`
   @Test func go_revertCaptureMove_whitesHavePriorPosition() {
-    let blackMovesAndCaptures = Move([
-      [
-        // black stone places on the board
-        mock.coreMove(eid: "GoStoneBlack:UUID1", target: .position([1, 0, 0]))
-      ],
-      [
-        // surrounded white stones are captured — all go to the black player's bowl
-        mock.coreMove(eid: "GoStoneWhite:UUID1", target: .magnet("BowlLidBlack")),
-        mock.coreMove(eid: "GoStoneWhite:UUID2", target: .magnet("BowlLidBlack")),
-        mock.coreMove(eid: "GoStoneWhite:UUID3", target: .magnet("BowlLidBlack")),
-      ],
+    let history = MoveHistory(moves: [
+      Move([
+        [
+          mock.coreMove(eid: "White:UUID1", target: .magnet("A1")),
+          mock.coreMove(eid: "White:UUID2", target: .magnet("A2")),
+          mock.coreMove(eid: "White:UUID3", target: .magnet("A3")),
+        ]
+      ]),
+      Move([
+        [
+          // black stone places on the board
+          mock.coreMove(eid: "Black:UUID1", target: .position([1, 0, 0]))
+        ],
+        [
+          // surrounded white stones are captured — all go to the black player's bowl
+          mock.coreMove(eid: "White:UUID1", target: .magnet("BowlLidBlack")),
+          mock.coreMove(eid: "White:UUID2", target: .magnet("BowlLidBlack")),
+          mock.coreMove(eid: "White:UUID3", target: .magnet("BowlLidBlack")),
+        ],
+      ]),
     ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      blackMovesAndCaptures,
-      searchThrough: [
-        Move([
-          [
-            mock.coreMove(eid: "GoStoneWhite:UUID1", target: .magnet("A1")),
-            mock.coreMove(eid: "GoStoneWhite:UUID2", target: .magnet("A2")),
-            mock.coreMove(eid: "GoStoneWhite:UUID3", target: .magnet("A3")),
-          ]
-        ])
-      ]
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(
-            eid: "GoStoneWhite:UUID3",
-            target: .magnet("A3"),
-            revertToInitialState: true
-          ),
-          mock.coreMove(
-            eid: "GoStoneWhite:UUID2",
-            target: .magnet("A2"),
-            revertToInitialState: true
-          ),
-          mock.coreMove(
-            eid: "GoStoneWhite:UUID1",
-            target: .magnet("A1"),
-            revertToInitialState: true
-          ),
-        ], [mock.coreMove(eid: "GoStoneBlack:UUID1", revertToInitialState: true)],
+        Move([
+          [
+            mock.coreMove(eid: "White:UUID3", target: .magnet("A3"), revertToInitialState: true),
+            mock.coreMove(eid: "White:UUID2", target: .magnet("A2"), revertToInitialState: true),
+            mock.coreMove(eid: "White:UUID1", target: .magnet("A1"), revertToInitialState: true),
+          ], [mock.coreMove(eid: "Black:UUID1", revertToInitialState: true)],
+        ])
       ]
     )
   }
 
   // Complex: undoing a chess capture where the same piece appears across multiple parts of the move
   @Test func chess_revertCaptureMoveAndSideEffects() {
-    let blackMovesAndCaptures = Move([
-      [
-        // white pawn moves to A7 (on top of black pawn 1)
-        mock.coreMove(eid: "WP1", target: .magnet("A7"))
-      ],
-      [
-        // black pawn 1 is captured and moves away
-        mock.coreMove(eid: "BP1", target: .magnet("MT1_1")),
-        // white pawn moves to A7 again, so it can fall down while black pawn 1 moves away
-        mock.coreMove(eid: "WP1", target: .magnet("A7")),
-      ],
+    let history = MoveHistory(moves: [
+      Move([
+        [
+          // white pawn moves to A7 (on top of black pawn 1)
+          mock.coreMove(eid: "WP1", target: .magnet("A7"))
+        ],
+        [
+          // black pawn 1 is captured and moves away
+          mock.coreMove(eid: "BP1", target: .magnet("MT1_1")),
+          // white pawn moves to A7 again, so it can fall down while black pawn 1 moves away
+          mock.coreMove(eid: "WP1", target: .magnet("A7")),
+        ],
+      ])
     ])
-    let moveHistory: [Move] = []
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      blackMovesAndCaptures,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "WP1", target: .magnet("A7"), revertToInitialState: true),
-          mock.coreMove(eid: "BP1", revertToInitialState: true),
-        ], [mock.coreMove(eid: "WP1", revertToInitialState: true)],
+        Move([
+          [
+            mock.coreMove(eid: "WP1", target: .magnet("A7"), revertToInitialState: true),
+            mock.coreMove(eid: "BP1", revertToInitialState: true),
+          ], [mock.coreMove(eid: "WP1", revertToInitialState: true)],
+        ])
       ]
     )
   }
 
   // Undoing a move that carried a stack of cards reverts all stacked cards to their initial state
   @Test func cards_revertMove_andCarriedStack() {
-    let moveWithStack = Move([
-      [
-        // card 1 moves, carrying A, B, C stacked on top of it
-        mock.coreMove(eid: "Card:UUID1", target: .position([1, 0, 0])),
-        mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID1")),
-        mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID1")),
-        mock.coreMove(eid: "Card:UUIDC", target: .magnet("Card:UUID1")),
-      ]
-    ])
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // some other card move that happened earlier
-      mock.move(eid: "Card:UUID0", target: .position([1, 0, 0]))
-    ]
+      mock.move(eid: "Card:UUID0", target: .position([1, 0, 0])),
+      Move([
+        [
+          // card 1 moves, carrying A, B, C stacked on top of it
+          mock.coreMove(eid: "Card:UUID1", target: .position([1, 0, 0])),
+          mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID1")),
+          mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID1")),
+          mock.coreMove(eid: "Card:UUIDC", target: .magnet("Card:UUID1")),
+        ]
+      ]),
+    ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      moveWithStack,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "Card:UUIDC", revertToInitialState: true),
-          mock.coreMove(eid: "Card:UUIDB", revertToInitialState: true),
-          mock.coreMove(eid: "Card:UUIDA", revertToInitialState: true),
-          mock.coreMove(eid: "Card:UUID1", revertToInitialState: true),
-        ]
+        Move([
+          [
+            mock.coreMove(eid: "Card:UUIDC", revertToInitialState: true),
+            mock.coreMove(eid: "Card:UUIDB", revertToInitialState: true),
+            mock.coreMove(eid: "Card:UUIDA", revertToInitialState: true),
+            mock.coreMove(eid: "Card:UUID1", revertToInitialState: true),
+          ]
+        ])
       ]
     )
   }
@@ -497,7 +543,7 @@ struct MoveToPreviousCoreMovesTests {
   // Complex: undoing a stack merge reverts all cards to their positions before the merge
   @Test func cards_revertStackMerge() {
     let POS_CARD1: SIMD3<Float> = [5, 0, 0]
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // card A stacks on card 1
       mock.move(eid: "Card:UUIDA", target: .magnet("Card:UUID1")),
       // card B stacks on card 1
@@ -506,44 +552,56 @@ struct MoveToPreviousCoreMovesTests {
       mock.move(eid: "Card:UUID2", target: .position([1, 0, 0])),
       // card 1 (with A+B stacked) moves to POS_CARD1
       mock.move(eid: "Card:UUID1", target: .position(POS_CARD1)),
-    ]
-
-    let card1MovesOnTopOf2WithStack = Move([
-      [
-        // card 1 (with A+B stacked) merges onto card 2
-        mock.coreMove(eid: "Card:UUID1", target: .magnet("Card:UUID2")),
-        mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID2")),
-        mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID2")),
-      ]
+      Move([
+        [
+          // card 1 (with A+B stacked) merges onto card 2
+          mock.coreMove(eid: "Card:UUID1", target: .magnet("Card:UUID2")),
+          mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID2")),
+          mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID2")),
+        ]
+      ]),
     ])
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      card1MovesOnTopOf2WithStack,
-      searchThrough: moveHistory
-    )
 
-    let bInStack_reversed = mock.coreMove(
-      eid: "Card:UUIDB",
-      target: .magnet("Card:UUID1"),
-      revertToInitialState: true
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
-    let aInStack_reversed = mock.coreMove(
-      eid: "Card:UUIDA",
-      target: .magnet("Card:UUID1"),
-      revertToInitialState: true
-    )
-    let card1Moves_reversed = mock.coreMove(
-      eid: "Card:UUID1",
-      target: .position(POS_CARD1),
-      revertToInitialState: true
-    )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
-    #expect(reverseMoves == [[bInStack_reversed, aInStack_reversed, card1Moves_reversed]])
+    #expect(
+      reverseMoves == [
+        Move([
+          [
+            mock.coreMove(
+              eid: "Card:UUIDB",
+              target: .magnet("Card:UUID1"),
+              revertToInitialState: true
+            ),
+            mock.coreMove(
+              eid: "Card:UUIDA",
+              target: .magnet("Card:UUID1"),
+              revertToInitialState: true
+            ),
+            mock.coreMove(
+              eid: "Card:UUID1",
+              target: .position(POS_CARD1),
+              revertToInitialState: true
+            ),
+          ]
+        ])
+      ]
+    )
   }
 
   // Complex: splitting a tower and undoing restores each card to its pre-split stack position
   @Test func splitTowerAndBringHalf() {
     let POS_CARD1: SIMD3<Float> = [5, 0, 0]
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // card A stacks on card 1
       mock.move(eid: "Card:UUIDA", target: .magnet("Card:UUID1")),
       // card B stacks on card 1
@@ -560,95 +618,128 @@ struct MoveToPreviousCoreMovesTests {
           mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID2")),
         ]
       ]),
-    ]
-
-    let cardAMovesToANewLocationAndBringsB = Move([
-      [
-        // card A splits off from the tower and moves to a new location
-        mock.coreMove(eid: "Card:UUIDA", target: .position([1, 0, 0])),
-        // card B rides on top of card A as it splits off
-        mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUIDA")),
-      ]
+      Move([
+        [
+          // card A splits off from the tower and moves to a new location
+          mock.coreMove(eid: "Card:UUIDA", target: .position([1, 0, 0])),
+          // card B rides on top of card A as it splits off
+          mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUIDA")),
+        ]
+      ]),
     ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      cardAMovesToANewLocationAndBringsB,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
-    let aInStack_reversed = mock.coreMove(
-      eid: "Card:UUIDA",
-      target: .magnet("Card:UUID2"),
-      revertToInitialState: true
+    #expect(
+      reverseMoves == [
+        Move([
+          [
+            mock.coreMove(
+              eid: "Card:UUIDB",
+              target: .magnet("Card:UUID2"),
+              revertToInitialState: true
+            ),
+            mock.coreMove(
+              eid: "Card:UUIDA",
+              target: .magnet("Card:UUID2"),
+              revertToInitialState: true
+            ),
+          ]
+        ])
+      ]
     )
-    let bInStack_reversed = mock.coreMove(
-      eid: "Card:UUIDB",
-      target: .magnet("Card:UUID2"),
-      revertToInitialState: true
-    )
-
-    #expect(reverseMoves == [[bInStack_reversed, aInStack_reversed]])
   }
 
   // Undoing an opacity-only move with no prior history reverts to initial state
   @Test func cards_revertModelChangeAsInitialMove() {
-    let moveHistory: [Move] = []
-    let packsSwapOutOpacity = Move([
-      [
-        // open-state model becomes visible
-        mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
-        // closed-state model becomes hidden
-        mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
-      ]
+    let history = MoveHistory(moves: [
+      Move([
+        [
+          // open-state model becomes visible
+          mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
+          // closed-state model becomes hidden
+          mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
+        ]
+      ])
     ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      packsSwapOutOpacity,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "CardsPackClosed", revertToInitialState: true),
-          mock.coreMove(eid: "CardsPackOpen", revertToInitialState: true),
-        ]
+        Move([
+          [
+            mock.coreMove(eid: "CardsPackClosed", revertToInitialState: true),
+            mock.coreMove(eid: "CardsPackOpen", revertToInitialState: true),
+          ]
+        ])
       ]
     )
   }
 
   // Undoing an opacity-only move when a prior matching move exists restores the prior opacity
   @Test func cards_revertModelChangeAsSubsequentMove() {
-    let packOpens = Move([
-      [
-        // open-state model becomes visible
-        mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
-        // closed-state model becomes hidden
-        mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
-      ]
-    ])
-    let moveHistory: [Move] = [
-      packOpens,
-      // pack opens a second time (same opacity values — tests that prior history is found and used)
+    let history = MoveHistory(moves: [
+      // pack opens
       Move([
         [
           mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
           mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
         ]
       ]),
-    ]
+      // pack closes — this is the prior state that should be restored on undo
+      Move([
+        [
+          mock.coreMove(eid: "CardsPackOpen", opacity: 0.0),
+          mock.coreMove(eid: "CardsPackClosed", opacity: 1.0),
+        ]
+      ]),
+      // pack opens again — this is the move being undone
+      Move([
+        [
+          mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
+          mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
+        ]
+      ]),
+    ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      packOpens,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "CardsPackClosed", opacity: 0.0, revertToInitialState: true),
-          mock.coreMove(eid: "CardsPackOpen", opacity: 1.0, revertToInitialState: true),
-        ]
+        Move([
+          [
+            mock.coreMove(eid: "CardsPackClosed", opacity: 1.0, revertToInitialState: true),
+            mock.coreMove(eid: "CardsPackOpen", opacity: 0.0, revertToInitialState: true),
+          ]
+        ])
       ]
     )
   }
@@ -656,50 +747,54 @@ struct MoveToPreviousCoreMovesTests {
   // Undoing an opacity change preserves the entity's position from a prior move
   @Test func cards_moveThenOpenPack() {
     let POS: SIMD3<Float> = [5, 0, 0]
-    let packOpens = Move([
-      [
-        // open-state model becomes visible
-        mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
-        // closed-state model becomes hidden
-        mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
-      ]
-    ])
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // both pack variants move together to POS
       Move([
         [
           mock.coreMove(eid: "CardsPackClosed", target: .position(POS)),
           mock.coreMove(eid: "CardsPackOpen", target: .position(POS)),
         ]
-      ])
-    ]
+      ]),
+      Move([
+        [
+          // open-state model becomes visible
+          mock.coreMove(eid: "CardsPackOpen", opacity: 1.0),
+          // closed-state model becomes hidden
+          mock.coreMove(eid: "CardsPackClosed", opacity: 0.0),
+        ]
+      ]),
+    ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      packOpens,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "CardsPackClosed", target: .position(POS), revertToInitialState: true),
-          mock.coreMove(eid: "CardsPackOpen", target: .position(POS), revertToInitialState: true),
-        ]
+        Move([
+          [
+            mock.coreMove(
+              eid: "CardsPackClosed",
+              target: .position(POS),
+              revertToInitialState: true
+            ),
+            mock.coreMove(eid: "CardsPackOpen", target: .position(POS), revertToInitialState: true),
+          ]
+        ])
       ]
     )
   }
 
   // Complex: undoing an opacity change correctly combines position from one history entry and opacity from another
   @Test func cards_revertModelChangeWithMovesInBetween() {
-    let packCloses = Move([
-      [
-        // open-state model becomes hidden
-        mock.coreMove(eid: "CardsPackOpen", opacity: 0.0),
-        // closed-state model becomes visible
-        mock.coreMove(eid: "CardsPackClosed", opacity: 1.0),
-      ]
-    ])
-    let moveHistory: [Move] = [
+    let history = MoveHistory(moves: [
       // pack opens
       Move([
         [
@@ -709,52 +804,77 @@ struct MoveToPreviousCoreMovesTests {
       ]),
       // pack moves to a new position
       mock.move(eid: "CardsPackOpen", target: .position([1, 1, 1])),
-    ]
+      Move([
+        [
+          // open-state model becomes hidden
+          mock.coreMove(eid: "CardsPackOpen", opacity: 0.0),
+          // closed-state model becomes visible
+          mock.coreMove(eid: "CardsPackClosed", opacity: 1.0),
+        ]
+      ]),
+    ])
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      packCloses,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "CardsPackClosed", opacity: 0.0, revertToInitialState: true),
-          mock.coreMove(
-            eid: "CardsPackOpen",
-            target: .position([1, 1, 1]),
-            opacity: 1.0,
-            revertToInitialState: true
-          ),
-        ]
+        Move([
+          [
+            mock.coreMove(eid: "CardsPackClosed", opacity: 0.0, revertToInitialState: true),
+            mock.coreMove(
+              eid: "CardsPackOpen",
+              target: .position([1, 1, 1]),
+              opacity: 1.0,
+              revertToInitialState: true
+            ),
+          ]
+        ])
       ]
     )
   }
 
   // Duration from the original move is propagated to the undo move
   @Test func cards_revertModelChangeWithDuration() {
-    let cardsAppear = Move([
-      [
-        // 3 cards fade in together over 2 seconds
-        mock.coreMove(eid: "Card1", opacity: 1.0, duration: .seconds(2)),
-        mock.coreMove(eid: "Card2", opacity: 1.0, duration: .seconds(2)),
-        mock.coreMove(eid: "Card3", opacity: 1.0, duration: .seconds(2)),
-      ]
+    let history = MoveHistory(moves: [
+      Move([
+        [
+          // 3 cards fade in together over 2 seconds
+          mock.coreMove(eid: "Card1", opacity: 1.0, duration: .seconds(2)),
+          mock.coreMove(eid: "Card2", opacity: 1.0, duration: .seconds(2)),
+          mock.coreMove(eid: "Card3", opacity: 1.0, duration: .seconds(2)),
+        ]
+      ])
     ])
-    let moveHistory: [Move] = []
 
-    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      cardsAppear,
-      searchThrough: moveHistory
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
     )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
 
     #expect(
       reverseMoves == [
-        [
-          mock.coreMove(eid: "Card3", duration: .seconds(2), revertToInitialState: true),
-          mock.coreMove(eid: "Card2", duration: .seconds(2), revertToInitialState: true),
-          mock.coreMove(eid: "Card1", duration: .seconds(2), revertToInitialState: true),
-        ]
+        Move([
+          [
+            mock.coreMove(eid: "Card3", duration: .seconds(2), revertToInitialState: true),
+            mock.coreMove(eid: "Card2", duration: .seconds(2), revertToInitialState: true),
+            mock.coreMove(eid: "Card1", duration: .seconds(2), revertToInitialState: true),
+          ]
+        ])
       ]
     )
   }

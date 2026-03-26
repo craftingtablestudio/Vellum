@@ -2,14 +2,13 @@
   import simd
 #endif
 
-public enum MoveHistoryHelpers {
+enum MoveHistoryHelpers {
   /// Finds the previous `CoreMove` for an `EID` by searching through the given moves in reverse.
   ///
   /// Collects the last known position/magnet, orientation, scale, opacity, modelMeta, and
   /// huggerIndex — combining partial results if needed. If nothing is found, returns a
   /// `CoreMove` with `revertToInitialState: true` so the caller can fall back to preset state.
-  public static func findPreviousCoreMove(search targetEid: EID, searchThrough: [Move]) -> CoreMove
-  {
+  static func findPreviousCoreMove(search targetEid: EID, searchThrough: [Move]) -> CoreMove {
     struct FoundMoves {
       let targetEid: EID
       init(for targetEid: EID) { self.targetEid = targetEid }
@@ -71,10 +70,7 @@ public enum MoveHistoryHelpers {
   /// Converts a `Move` into its reverse CoreMoves by looking up each entity's previous state.
   ///
   /// Returns `[[CoreMove]]` — a chunked array matching the undo direction.
-  public static func moveToPreviousCoreMoves(
-    _ moveToUndo: Move,
-    searchThrough: [Move]
-  ) -> [[CoreMove]] {
+  static func moveToPreviousCoreMoves(_ moveToUndo: Move, searchThrough: [Move]) -> [[CoreMove]] {
     var result: [[CoreMove]] = []
     var chunksToUndo: [[CoreMove]] = moveToUndo.chunks
 
@@ -126,7 +122,7 @@ public enum MoveHistoryHelpers {
     return lhs.orientation == nil && rhs.orientation == nil
   }
 
-  public static func coreMoveUnchanged(
+  static func coreMoveUnchanged(
     coreMove: CoreMove,
     movesToCompareWith: [Move],
     initialStateDic: [EID: EntityState]
