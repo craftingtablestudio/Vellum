@@ -3,7 +3,7 @@ import simd
 import Testing
 import Vellum
 
-// MARK: - MoveNrTests · Simple + Boundary
+// MARK: - MoveNrTests · encoding and clamping
 
 struct MoveNrTests {
   // `.lastMove` always encodes as -1 — the sentinel value contract
@@ -12,7 +12,7 @@ struct MoveNrTests {
   // `.specific` passes through its raw value unchanged
   @Test func specific_hasCorrectIntValue() { #expect(MoveNr.specific(3).value == 3) }
 
-  // Any negative int clamps to `.lastMove`
+  // Boundary: any negative int clamps to `.lastMove`
   @Test func clamping_negativeInt_becomesLastMove() { #expect(MoveNr(clamping: -99) == .lastMove) }
 
   // Round-tripping through JSON preserves both cases
@@ -29,7 +29,7 @@ struct MoveNrTests {
   }
 }
 
-// MARK: - MoveHistoryPropertyTests · Simple + Boundary
+// MARK: - MoveHistoryPropertyTests · computed properties
 
 struct MoveHistoryPropertyTests {
   // `playedMoves` on a history with no moves returns an empty array
@@ -54,7 +54,7 @@ struct MoveHistoryPropertyTests {
     #expect(history.cannotUndo(animatingTowards: nil))
   }
 
-  // `cannotUndo` is true when browsed all the way to move zero
+  // Boundary: `cannotUndo` is true when browsed all the way to move zero
   @Test func cannotUndo_whenBrowsedToMoveZero() {
     var history = MoveHistory()
     history.moves = [mock.move(eid: "E1", target: .position([1, 0, 0]))]
@@ -62,7 +62,7 @@ struct MoveHistoryPropertyTests {
     #expect(history.cannotUndo(animatingTowards: nil))
   }
 
-  // `cannotRedo` is true when `moveNr == -1` (at the latest move)
+  // Boundary: `cannotRedo` is true when `moveNr == -1` (at the latest move)
   @Test func cannotRedo_whenAtLatestMove() {
     var history = MoveHistory()
     history.moves = [mock.move(eid: "E1", target: .position([1, 0, 0]))]
@@ -71,10 +71,10 @@ struct MoveHistoryPropertyTests {
   }
 }
 
-// MARK: - AppendMoveTests · Average + Complex + Boundary
+// MARK: - AppendMoveTests · appending moves and branching
 
 struct AppendMoveTests {
-  // The first move appended to an empty history is stored at index 0
+  // Boundary: the first move appended to an empty history is stored at index 0
   @Test func appendMove_addsFirstMove_toEmptyHistory() throws {
     let move = mock.move(eid: "E1", target: .position([1, 0, 0]))
     var history = MoveHistory()
@@ -165,7 +165,7 @@ struct RestoreHistoryTests {
   }
 }
 
-// MARK: - BrowseHistoryTests · Average + Complex
+// MARK: - BrowseHistoryTests · undo, redo, and jump
 
 struct BrowseHistoryTests {
   // Undo from the latest move returns one reversed move with `newMoveNr` decremented by 1
@@ -259,7 +259,7 @@ struct BrowseHistoryTests {
   }
 }
 
-// MARK: - MoveToPreviousCoreMovesTests · Average + Complex
+// MARK: - MoveToPreviousCoreMovesTests · computing the reverse of a move
 
 struct MoveToPreviousCoreMovesTests {
   // Undoing a capture where neither piece has prior history reverts both to their initial states
