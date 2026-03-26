@@ -1,5 +1,4 @@
 import Foundation
-import simd
 import Testing
 import Vellum
 
@@ -269,13 +268,11 @@ struct MoveToPreviousCoreMovesTests {
         // black pawn moves to capture square
         mock.coreMove(eid: "BP1", target: .position([1, 0, 0])),
         // white rook is captured (side-effect: moves off its square)
-        mock.coreMove(eid: "WR1", target: .position([1, 0, 0])),
+        mock.coreMove(eid: "WR1", target: .position([0, 0, 0.5])),
       ]
     ])
-    let moveHistory: [Move] = [
-      // white pawn had moved to [1,0,0] in a prior turn
-      mock.move(eid: "WP1", target: .position([1, 0, 0]))
-    ]
+    // unrelated prior move — confirms WP1 doesn't pollute the BP1/WR1 lookup
+    let moveHistory: [Move] = [mock.move(eid: "WP1", target: .position([1, 0, 0]))]
 
     let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
       pawnCapturesRook,
@@ -347,8 +344,9 @@ struct MoveToPreviousCoreMovesTests {
     #expect(reverseMoves == [[rookGetsMoved_reversed]])
   }
 
-  // Complex: undoing a Go capture (compound move with side effects) reverts each stone to its prior state
-  @Test func go_revertCaptureMoveAndSideEffects() {
+  // Complex: undoing a Go capture — whites with no prior history revert to initial state with no target;
+  // captures undo first (reverse chunk order), then the black stone placement
+  @Test func go_revertCaptureMove_whitesHaveNoHistory() {
     let blackMovesAndCaptures = Move([
       [
         // black stone places on the board
@@ -361,10 +359,8 @@ struct MoveToPreviousCoreMovesTests {
         mock.coreMove(eid: "GoStoneWhite:UUID3", target: .magnet("BowlLidBlack")),
       ],
     ])
-    let moveHistory: [Move] = [
-      // some other black stone that was played earlier
-      mock.move(eid: "GoStoneBlack:UUID5", target: .position([1, 0, 0]))
-    ]
+    // unrelated prior move — confirms UUID5 doesn't pollute the white-stone lookup
+    let moveHistory: [Move] = [mock.move(eid: "GoStoneBlack:UUID5", target: .position([1, 0, 0]))]
 
     let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
       blackMovesAndCaptures,
@@ -380,8 +376,25 @@ struct MoveToPreviousCoreMovesTests {
         ], [mock.coreMove(eid: "GoStoneBlack:UUID1", revertToInitialState: true)],
       ]
     )
+  }
 
-    let reverseMoves2 = MoveHistoryHelpers.moveToPreviousCoreMoves(
+  // Complex: undoing a Go capture — whites with a known prior position carry that last known target
+  // when reverting, rather than falling back to `.unset`
+  @Test func go_revertCaptureMove_whitesHavePriorPosition() {
+    let blackMovesAndCaptures = Move([
+      [
+        // black stone places on the board
+        mock.coreMove(eid: "GoStoneBlack:UUID1", target: .position([1, 0, 0]))
+      ],
+      [
+        // surrounded white stones are captured — all go to the black player's bowl
+        mock.coreMove(eid: "GoStoneWhite:UUID1", target: .magnet("BowlLidBlack")),
+        mock.coreMove(eid: "GoStoneWhite:UUID2", target: .magnet("BowlLidBlack")),
+        mock.coreMove(eid: "GoStoneWhite:UUID3", target: .magnet("BowlLidBlack")),
+      ],
+    ])
+
+    let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
       blackMovesAndCaptures,
       searchThrough: [
         Move([
@@ -395,7 +408,7 @@ struct MoveToPreviousCoreMovesTests {
     )
 
     #expect(
-      reverseMoves2 == [
+      reverseMoves == [
         [
           mock.coreMove(
             eid: "GoStoneWhite:UUID3",
