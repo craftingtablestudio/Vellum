@@ -17,7 +17,7 @@ Pure-Swift move ledger for board games — tracks positions, orientations, and s
 
 Vellum is a pure-Swift package with no RealityKit, SwiftData, or SwiftUI dependency. It models the move history of a board game as a typed, codable ledger that supports:
 
-- Recording moves made up of one or more parallel/sequential chunks
+- Recording moves made up of one or more parallel/sequential groups
 - Undo and redo with full state reconstruction
 - Non-linear history browsing (jump to any move)
 - Divergence detection and backup when a player branches off history
@@ -25,7 +25,7 @@ Vellum is a pure-Swift package with no RealityKit, SwiftData, or SwiftUI depende
 
 ## Examples
 
-### Recording a move:
+### Recording a move
 
 ```swift
 var history = MoveHistory()
@@ -43,7 +43,26 @@ print(history.moveNr)              // -1 (still latest)
 print(history.moveNrActual.value)  // 1
 ```
 
-### Undoing a move (conceptual):
+### Recording a move with parallel and sequential groups
+
+```swift
+// A Move is a nested array: [[CoreMove, CoreMove], [CoreMove], ...]
+// CoreMoves in the same inner array are intended to be applied in parallel by the caller
+// Inner arrays are intended to be applied sequentially: the first group before the second
+let move = Move([
+  [                                                                // first group:
+    CoreMove(eid: blackStoneEID, target: .position([3, 0, 2])),   //   black places a stone
+  ],
+  [                                                                // then sequential group:
+    CoreMove(eid: whiteStone1EID, target: .magnet(bowlEID)),      //   surrounded white stones
+    CoreMove(eid: whiteStone2EID, target: .magnet(bowlEID)),      //   are captured
+    CoreMove(eid: whiteStone3EID, target: .magnet(bowlEID)),      //   all at once (in parallel)
+  ],
+])
+try history.appendMove(move, initialStateDic: entityInitialStates, atIndex: nil, setMoveNr: true)
+```
+
+### Undoing a move
 
 ```swift
 // Assume history has 3 moves recorded
@@ -61,7 +80,7 @@ print(history.moveNr)              // -1 (cursor not yet updated — see below)
 print(history.moveNrActual.value)  // 3 (cursor not yet updated — see below)
 ```
 
-### Undoing a move and animate:
+**Example undo handling via animation:**
 
 ```swift
 // Your app tracks these as state — nil when idle, non-nil while an animation is running
@@ -77,7 +96,7 @@ let browseResult = history.browseHistory(
 switch browseResult {
 case .animateMoves(let movesAndNrs):
   // Set the overall destination once before the loop
-  animatingTowards = movesAndNrs.last?.toMoveNr
+  animatingTowards = movesAndNrs.last?.newMoveNr
   for (reverseMove, fromMoveNr, toMoveNr) in movesAndNrs {
     print(fromMoveNr.value, "→", toMoveNr.value)  // e.g. 3 → 2
     // Update to the current step's destination so browseHistory can detect mid-animation reversals
@@ -105,7 +124,7 @@ print(history.moveNr)              // 2
 print(history.moveNrActual.value)  // 2
 ```
 
-### Jumping to a specific move:
+### Jumping to a specific move
 
 ```swift
 // Assume history has 5 moves, currently at the latest
@@ -117,12 +136,12 @@ let browseResult = history.browseHistory(
   animatingTowards: nil,
   currentlyAnimating: nil
 )
-// Returns .animateMoves with all 3 intermediate steps to animate through (5→4, 4→3, 3→2)
+// Returns .animateMoves with all 3 intermediate steps to apply (5→4, 4→3, 3→2)
 // browseHistory doesn't move the cursor — you do that manually as each animation completes
 print(history.moveNrActual.value)  // 5
 ```
 
-### Branching history (player makes a new move after undoing):
+### Branching history (player makes a new move after undoing)
 
 ```swift
 // Player undid back to move 2 out of 5, then makes a different move
@@ -143,7 +162,7 @@ if let backup = appendResult?.backupForDivergence {
 }
 ```
 
-### Restoring the original history (going back to the main game):
+### Restoring the original history (going back to the main game)
 
 ```swift
 let backup = gameState.historyBackup
@@ -165,7 +184,9 @@ let browseResult = history.browseHistory(
 history.moves = history.moves.slice(0, backup.divergenceMoveNr) + backup.moves
 gameState.historyBackup = HistoryBackup()
 
-print(history.moves.count)  // 5 (original history restored)
+print(history.moves.count)         // 5 (original history restored)
+print(history.moveNr)              // -1 (latest)
+print(history.moveNrActual.value)  // 5
 ```
 
 ## Versioned Types
