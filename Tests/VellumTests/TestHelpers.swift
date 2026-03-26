@@ -1,5 +1,7 @@
 import Foundation
-import simd
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+  import simd
+#endif
 import Vellum
 
 enum MockTarget { case magnet(String, _ huggerIndex: Int? = nil), position(SIMD3<Float>), unset }

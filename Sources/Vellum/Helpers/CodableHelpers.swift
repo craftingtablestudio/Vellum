@@ -1,4 +1,6 @@
-import simd
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+  import simd
+#endif
 
 public enum SIMD3FloatCodable {
   @inlinable public static func decode<CodingKeys: CodingKey>(

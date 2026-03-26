@@ -1,4 +1,6 @@
-import simd
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+  import simd
+#endif
 
 public enum MoveHistoryHelpers {
   /// Finds the previous `CoreMove` for an `EID` by searching through the given moves in reverse.

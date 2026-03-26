@@ -1,4 +1,6 @@
-import simd
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+  import simd
+#endif
 
 // Inlined from github.com/craftingtablestudio/letsplay Illusionist/AngleHelpers — only what Vellum needs.
 
