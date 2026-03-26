@@ -133,8 +133,8 @@ struct AppendMoveTests {
 // MARK: - RestoreHistoryTests
 
 struct RestoreHistoryTests {
-  // Complex: splicing backup.moves back in restores the full original history
-  @Test func restoreOriginalHistory_splicesBackupMovesBack() throws {
+  // Complex: trimming to divergence point and appending backup.moves restores the full original history
+  @Test func restoreOriginalHistory_trimsAndRestoresBackupMoves() throws {
     let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
     let moveC = mock.move(eid: "E1", target: .position([3, 0, 0]))
