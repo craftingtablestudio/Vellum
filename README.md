@@ -15,7 +15,7 @@ Pure-Swift move ledger for board games — tracks positions, orientations, and s
 
 ## Overview
 
-Vellum is a pure-Swift package with no RealityKit, SwiftData, or SwiftUI dependency. It models the move history of a board game as a typed, codable ledger that supports:
+Vellum is a cross-platform pure-Swift package without platform specific library reliances. It models the move history of a board game as a typed, codable ledger that supports:
 
 - Recording moves made up of one or more parallel/sequential groups
 - Undo and redo with full state reconstruction
