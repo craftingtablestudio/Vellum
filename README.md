@@ -205,6 +205,14 @@ try history.appendMove(move, initialStateDic: [:], atIndex: nil, setMoveNr: true
 let old = try decoder.decode(Vellum.v0.CoreMove.self, from: data)
 ```
 
+## Test Coverage
+
+```bash
+./coverage.sh
+```
+
+Runs the test suite with coverage enabled and prints a per-file coverage table to the terminal.
+
 ## Documentation
 
 See the [documentation](https://swiftpackageindex.com/craftingtablestudio/Vellum/main/documentation/Vellum/Vellum) for more info.
