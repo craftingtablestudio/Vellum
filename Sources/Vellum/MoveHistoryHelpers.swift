@@ -52,11 +52,7 @@ public enum MoveHistoryHelpers {
     let target: CoreMoveTarget =
       if let magnet = found.magnet {
         .magnet(magnet, found.huggerIndex)
-      } else if let position = found.position {
-        .position(position)
-      } else {
-        .unset
-      }
+      } else if let position = found.position { .position(position) } else { .unset }
 
     return CoreMove(
       eid: targetEid,

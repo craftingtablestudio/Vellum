@@ -223,8 +223,7 @@ extension MoveHistory {
       }
       if setMoveNr { self.moveNr = -1 }
       return (
-        addOrBrowseIndex: .addedAtIndex(atIndex),
-        newMoveNr: .specific(atIndex.rawValue + 1),
+        addOrBrowseIndex: .addedAtIndex(atIndex), newMoveNr: .specific(atIndex.rawValue + 1),
         backupForDivergence: nil
       )
     }
@@ -240,13 +239,10 @@ extension MoveHistory {
       self.moveNr += 1
       return (
         addOrBrowseIndex: .browsedToIndex(MoveIndex(clamping: self.moveNr - 1)),
-        newMoveNr: MoveNr(clamping: self.moveNr),
-        backupForDivergence: nil
+        newMoveNr: MoveNr(clamping: self.moveNr), backupForDivergence: nil
       )
-    case .matchesCurrentState:
-      return nil
-    case .isNew:
-      break
+    case .matchesCurrentState: return nil
+    case .isNew: break
     }
 
     var backupForDivergence: HistoryBackup? = nil
@@ -274,8 +270,7 @@ extension MoveHistory {
     self.moves.append(move)
 
     return (
-      addOrBrowseIndex: .addedAtIndex(addedAtIndex),
-      newMoveNr: MoveNr(clamping: self.moveNr),
+      addOrBrowseIndex: .addedAtIndex(addedAtIndex), newMoveNr: MoveNr(clamping: self.moveNr),
       backupForDivergence: backupForDivergence
     )
   }
@@ -312,9 +307,7 @@ extension MoveHistory {
 
     if let to = animatingTowards?.rawValue, let from = currentlyAnimating?.rawValue {
       let isBetween: Bool =
-        if to > from {
-          newMoveNr.rawValue <= to && newMoveNr.rawValue > from
-        } else if from > to {
+        if to > from { newMoveNr.rawValue <= to && newMoveNr.rawValue > from } else if from > to {
           newMoveNr.rawValue < from && newMoveNr.rawValue >= to
         } else { false }
       if isBetween { return .stopAnimating(stopAt: newMoveNr) }
@@ -340,9 +333,7 @@ extension MoveHistory {
       let movesToUndo = self.moves.slice(willAimFor.value, wasAimingFor.value).reversed()
 
       if DEBUGGING_VELLUM {
-        print(
-          "movesToUndo: moves.slice(\(willAimFor.value), \(wasAimingFor.value)) →", movesToUndo
-        )
+        print("movesToUndo: moves.slice(\(willAimFor.value), \(wasAimingFor.value)) →", movesToUndo)
       }
 
       var movesToAnimate: [(move: Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)] = []

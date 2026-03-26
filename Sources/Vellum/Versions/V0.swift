@@ -342,9 +342,7 @@ public enum v0 {
       try container.encodeIfPresent(self.duration, forKey: .duration)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggerIndex, forKey: .huggerIndex)
-      if self.revertToInitialState {
-        try container.encode(true, forKey: .revertToInitialState)
-      }
+      if self.revertToInitialState { try container.encode(true, forKey: .revertToInitialState) }
     }
   }
 
@@ -355,9 +353,7 @@ public enum v0 {
   public struct Move: Equatable, Codable, Sendable {
     public var chunks: [[CoreMove]]
 
-    public init(_ chunks: [[CoreMove]]) {
-      self.chunks = chunks
-    }
+    public init(_ chunks: [[CoreMove]]) { self.chunks = chunks }
   }
 
   // MARK: - HistoryBackup
@@ -410,12 +406,12 @@ public enum v0 {
       let movesDic = try container.decodeIfPresent([String: Move].self, forKey: .moves) ?? [:]
       let movesArray =
         movesDic.sorted(by: {
-          guard
-            let intKey0 = Int($0.key.trimmingCharacters(in: CharacterSet(charactersIn: "_"))),
+          guard let intKey0 = Int($0.key.trimmingCharacters(in: CharacterSet(charactersIn: "_"))),
             let intKey1 = Int($1.key.trimmingCharacters(in: CharacterSet(charactersIn: "_")))
           else { return false }
           return intKey0 < intKey1
-        }).map { $0.value }
+        })
+        .map { $0.value }
       self.moves = movesArray
     }
 

@@ -2,18 +2,9 @@ import Foundation
 import simd
 import Vellum
 
-enum MockTarget {
-  case magnet(String, _ huggerIndex: Int? = nil), position(SIMD3<Float>), unset
-}
+enum MockTarget { case magnet(String, _ huggerIndex: Int? = nil), position(SIMD3<Float>), unset }
 
 enum mock {
-  static func position() -> SIMD3<Float> {
-    return [
-      floor(Float.random(in: 10...20)) / 10, floor(Float.random(in: 10...20)) / 10,
-      floor(Float.random(in: 10...20)) / 10,
-    ]
-  }
-
   static func coreMove(
     eid: String,
     target: MockTarget = MockTarget.unset,
