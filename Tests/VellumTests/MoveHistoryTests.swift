@@ -103,7 +103,7 @@ struct AppendMoveTests {
     #expect(result?.addOrBrowseIndex.browsedToIndex == MoveIndex(1))
   }
 
-  // While browsing, appending a diverging move removes future moves
+  // Complex: while browsing, appending a diverging move removes future moves
   @Test func appendMove_divergesFromHistory_truncatesFuture() throws {
     let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
@@ -116,7 +116,7 @@ struct AppendMoveTests {
     #expect(history.moveNr == -1)
   }
 
-  // When diverging removes more than one future move, a backup is returned
+  // Complex: when diverging removes more than one future move, a backup is returned
   @Test func appendMove_divergesMoreThanOne_createsBackup() throws {
     let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
@@ -133,7 +133,7 @@ struct AppendMoveTests {
 // MARK: - RestoreHistoryTests
 
 struct RestoreHistoryTests {
-  // Splicing backup.moves back in restores the full original history
+  // Complex: splicing backup.moves back in restores the full original history
   @Test func restoreOriginalHistory_splicesBackupMovesBack() throws {
     let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
@@ -208,7 +208,7 @@ struct BrowseHistoryTests {
     }
   }
 
-  // `.stopAnimating` fires when the user acts mid-animation and the new target falls between
+  // Complex: `.stopAnimating` fires when the user acts mid-animation and the new target falls between
   // `currentlyAnimating` and `animatingTowards`
   // e.g. showMove 5→0 in progress (animatingTowards=0, currentlyAnimating=2), user taps redo
   //      → newMoveNr = 0+1 = 1, which is between 2 and 0 → stopAt=1
@@ -234,7 +234,7 @@ struct BrowseHistoryTests {
     }
   }
 
-  // `showMove(.specific(0))` from the end of a 3-move history returns 3 reverse moves in order
+  // Complex: `showMove(.specific(0))` from the end of a 3-move history returns 3 reverse moves in order
   @Test func browseHistory_showMove_jumpsMultipleSteps() {
     let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
@@ -330,7 +330,7 @@ struct MoveToPreviousCoreMovesTests {
     #expect(reverseMoves == [[rookGetsMoved_reversed]])
   }
 
-  // Undoing a Go capture (multi-chunk move) reverts each stone to its prior state
+  // Complex: undoing a Go capture (compound move with side effects) reverts each stone to its prior state
   @Test func go_revertCaptureMoveAndSideEffects() {
     let captureWhite1 = mock.coreMove(eid: "GoStoneWhite:UUID1", target: .magnet("BowlLidBlack"))
     let captureWhite2 = mock.coreMove(eid: "GoStoneWhite:UUID2", target: .magnet("BowlLidBlack"))
@@ -392,7 +392,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  // Undoing a chess capture where a piece appears in multiple chunks is handled correctly
+  // Complex: undoing a chess capture where the same piece appears across multiple parts of the move
   @Test func chess_revertCaptureMoveAndSideEffects() {
     let moveToA7 = mock.coreMove(eid: "WP1", target: .magnet("A7"))
     let bp1Captured = mock.coreMove(eid: "BP1", target: .magnet("MT1_1"))
@@ -414,21 +414,21 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  // Undoing a move that dragged hugger cards along reverts all huggers to their initial state
-  @Test func cards_revertMoveAndHuggers() {
-    let extraHuggerA = mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID1"))
-    let extraHuggerB = mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID1"))
-    let extraHuggerC = mock.coreMove(eid: "Card:UUIDC", target: .magnet("Card:UUID1"))
-    let moveAndBringHuggers = Move([
+  // Undoing a move that carried a stack of cards reverts all stacked cards to their initial state
+  @Test func cards_revertMove_andCarriedStack() {
+    let stackedCardA = mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID1"))
+    let stackedCardB = mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID1"))
+    let stackedCardC = mock.coreMove(eid: "Card:UUIDC", target: .magnet("Card:UUID1"))
+    let moveWithStack = Move([
       [
-        mock.coreMove(eid: "Card:UUID1", target: .position([1, 0, 0])), extraHuggerA, extraHuggerB,
-        extraHuggerC,
+        mock.coreMove(eid: "Card:UUID1", target: .position([1, 0, 0])), stackedCardA, stackedCardB,
+        stackedCardC,
       ]
     ])
     let moveHistory: [Move] = [mock.move(eid: "Card:UUID0", target: .position([1, 0, 0]))]
 
     let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      moveAndBringHuggers,
+      moveWithStack,
       searchThrough: moveHistory
     )
 
@@ -444,18 +444,18 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  // Undoing a stack merge reverts all cards to their pre-merge hugging positions
-  @Test func cards_revertMoveAndHuggers2() {
+  // Complex: undoing a stack merge reverts all cards to their positions before the merge
+  @Test func cards_revertStackMerge() {
     let POS_CARD1: SIMD3<Float> = [5, 0, 0]
-    let aStartsHugging = mock.move(eid: "Card:UUIDA", target: .magnet("Card:UUID1"))
-    let bStartsHugging = mock.move(eid: "Card:UUIDB", target: .magnet("Card:UUID1"))
+    let aJoinsStack = mock.move(eid: "Card:UUIDA", target: .magnet("Card:UUID1"))
+    let bJoinsStack = mock.move(eid: "Card:UUIDB", target: .magnet("Card:UUID1"))
     let card1Moves = mock.move(eid: "Card:UUID1", target: .position(POS_CARD1))
     let moveHistory: [Move] = [
-      aStartsHugging, bStartsHugging, mock.move(eid: "Card:UUID2", target: .position([1, 0, 0])),
+      aJoinsStack, bJoinsStack, mock.move(eid: "Card:UUID2", target: .position([1, 0, 0])),
       card1Moves,
     ]
 
-    let card1MovesOnTopOf2AndBringsHuggers = Move([
+    let card1MovesOnTopOf2WithStack = Move([
       [
         mock.coreMove(eid: "Card:UUID1", target: .magnet("Card:UUID2")),
         mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID2")),
@@ -463,16 +463,16 @@ struct MoveToPreviousCoreMovesTests {
       ]
     ])
     let reverseMoves = MoveHistoryHelpers.moveToPreviousCoreMoves(
-      card1MovesOnTopOf2AndBringsHuggers,
+      card1MovesOnTopOf2WithStack,
       searchThrough: moveHistory
     )
 
-    let bStartsHugging_reversed = mock.coreMove(
+    let bInStack_reversed = mock.coreMove(
       eid: "Card:UUIDB",
       target: .magnet("Card:UUID1"),
       revertToInitialState: true
     )
-    let aStartsHugging_reversed = mock.coreMove(
+    let aInStack_reversed = mock.coreMove(
       eid: "Card:UUIDA",
       target: .magnet("Card:UUID1"),
       revertToInitialState: true
@@ -484,17 +484,17 @@ struct MoveToPreviousCoreMovesTests {
     )
 
     #expect(
-      reverseMoves == [[bStartsHugging_reversed, aStartsHugging_reversed, card1Moves_reversed]]
+      reverseMoves == [[bInStack_reversed, aInStack_reversed, card1Moves_reversed]]
     )
   }
 
-  // Splitting a tower and undoing restores each card to its pre-split stack position
+  // Complex: splitting a tower and undoing restores each card to its pre-split stack position
   @Test func splitTowerAndBringHalf() {
     let POS_CARD1: SIMD3<Float> = [5, 0, 0]
-    let aStartsHugging = mock.move(eid: "Card:UUIDA", target: .magnet("Card:UUID1"))
-    let bStartsHugging = mock.move(eid: "Card:UUIDB", target: .magnet("Card:UUID1"))
+    let aJoinsStack = mock.move(eid: "Card:UUIDA", target: .magnet("Card:UUID1"))
+    let bJoinsStack = mock.move(eid: "Card:UUIDB", target: .magnet("Card:UUID1"))
     let card1Moves = mock.move(eid: "Card:UUID1", target: .position(POS_CARD1))
-    let card1MovesOnTopOf2AndBringsHuggers = Move([
+    let card1MovesOnTopOf2WithStack = Move([
       [
         mock.coreMove(eid: "Card:UUID1", target: .magnet("Card:UUID2")),
         mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID2")),
@@ -502,8 +502,8 @@ struct MoveToPreviousCoreMovesTests {
       ]
     ])
     let moveHistory: [Move] = [
-      aStartsHugging, bStartsHugging, mock.move(eid: "Card:UUID2", target: .position([1, 0, 0])),
-      card1Moves, card1MovesOnTopOf2AndBringsHuggers,
+      aJoinsStack, bJoinsStack, mock.move(eid: "Card:UUID2", target: .position([1, 0, 0])),
+      card1Moves, card1MovesOnTopOf2WithStack,
     ]
 
     let cardAMovesToANewLocationAndBringsB = Move([
@@ -518,18 +518,18 @@ struct MoveToPreviousCoreMovesTests {
       searchThrough: moveHistory
     )
 
-    let aStartsHugging_reversed = mock.coreMove(
+    let aInStack_reversed = mock.coreMove(
       eid: "Card:UUIDA",
       target: .magnet("Card:UUID2"),
       revertToInitialState: true
     )
-    let bStartsHugging_reversed = mock.coreMove(
+    let bInStack_reversed = mock.coreMove(
       eid: "Card:UUIDB",
       target: .magnet("Card:UUID2"),
       revertToInitialState: true
     )
 
-    #expect(reverseMoves == [[bStartsHugging_reversed, aStartsHugging_reversed]])
+    #expect(reverseMoves == [[bInStack_reversed, aInStack_reversed]])
   }
 
   // Undoing an opacity-only move with no prior history reverts to initial state
@@ -620,7 +620,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  // Undoing an opacity change correctly combines position from one history entry and opacity from another
+  // Complex: undoing an opacity change correctly combines position from one history entry and opacity from another
   @Test func cards_revertModelChangeWithMovesInBetween() {
     let packOpens = Move([
       [
