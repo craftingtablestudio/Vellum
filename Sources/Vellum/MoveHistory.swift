@@ -198,6 +198,14 @@ extension MoveHistory {
 
   /// Appends a move to the history ledger.
   ///
+  /// - Parameters:
+  ///   - initialStateDic: The initial state of all entities, used to detect duplicate moves.
+  ///   - atIndex: When non-nil, inserts the move at exactly that index and skips all
+  ///     duplicate-detection logic. Intended for multiplayer sync: a remote participant's move
+  ///     arrives with the index it was assigned on their device, and must land at the same
+  ///     position in every participant's history to keep ledgers identical.
+  ///   - setMoveNr: When `true`, resets `moveNr` to `-1` (latest) after inserting. Must be
+  ///     `true` whenever `atIndex` is nil.
   /// - Returns: `MoveResult` — nil if the move was a no-op.
   @discardableResult public mutating func appendMove(
     _ move: Move,

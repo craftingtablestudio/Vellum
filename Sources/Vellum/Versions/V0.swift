@@ -9,6 +9,15 @@ public enum v0 {
 
   public enum EIDCustomDecodingError: Error { case BadClone, BadOther }
 
+  /// Entity Identifier — the stable, serialisable identity of an entity across moves and saves.
+  ///
+  /// Two cases because there are two fundamentally different kinds of entities:
+  /// - `.other(name)`: a static, unique entity. Name alone is sufficient because only one instance
+  ///   ever exists. Should have an entry in `initialStateDic` so its state can be restored on undo.
+  /// - `.clone(name, cloneId)`: a dynamically created entity. Multiple copies of the same template
+  ///   can exist simultaneously, so a UUID distinguishes instances. `name` is the template;
+  ///   `cloneId` is the specific instance.
+  /// - `.none`: absence of an entity.
   public enum EID: Codable, Equatable, Hashable, Sendable, CustomStringConvertible,
     CustomDebugStringConvertible
   {
@@ -143,8 +152,24 @@ public enum v0 {
 
   // MARK: - ModelMetaComponent
 
+  /// Stores the logical identity and texture overrides for an entity whose visual appearance can
+  /// change at runtime (e.g. a playing card that shows a specific face).
   public struct ModelMetaComponent: Codable, Sendable, Equatable {
+    /// The logical name of this model variant (e.g. `"Ace of Spades"`). Identifies what the
+    /// entity conceptually *is*, independent of which texture is currently applied.
     public var name: String
+    /// Maps entity-relative scene paths to locally cached texture filenames.
+    /// The key is a slash-separated path into the entity's child hierarchy; the value is a
+    /// filename (e.g. `"AS.png"`) that the caller resolves to a file on disk — typically
+    /// downloaded from a remote source and cached locally before being applied.
+    ///
+    /// Example:
+    /// ```swift
+    /// ModelMetaComponent(
+    ///   name: "Ace of Spades",
+    ///   pathTextureDic: ["Front/Front": "AS.png"]
+    /// )
+    /// ```
     public var pathTextureDic: [String: String]
 
     public init(name: String, pathTextureDic: [String: String]) {
@@ -261,8 +286,12 @@ public enum v0 {
     public var sound: SoundGroup?
     /// Index used when adding at a specific hugger slot.
     public var huggerIndex: Int?
-    /// Used in undo logic only — marks that this move should revert to initial entity state.
-    /// Never persisted to the database.
+    /// Set by `browseHistory` when an entity has no recorded prior state in the ledger — meaning
+    /// the caller must resolve where it came from. Never persisted.
+    ///
+    /// - `.other` entities: look up their original state in `initialStateDic`.
+    /// - `.clone` entities: return them to their cloner, which requires live runtime state only
+    ///   the caller has.
     public var revertToInitialState: Bool
 
     public init(
@@ -399,6 +428,25 @@ public enum v0 {
     // ║ CODABLE ║
     // ╚═════════╝
 
+    /// `moves` is encoded as `[String: Move]` (keyed `"_0"`, `"_1"`, …) rather than `[Move]`
+    /// to work around confirmed SwiftData bugs affecting `Codable` structs with optional fields:
+    ///
+    /// - **`init(from:)` bypassed + `Optional<Any>` crash**: SwiftData uses its own
+    ///   composite-attribute decoder instead of `JSONDecoder`, ignoring any custom `init(from:)`.
+    ///   That decoder throws when it encounters `Optional<Any>`, crashing even when your struct
+    ///   handles optionals correctly.
+    ///   https://developer.apple.com/forums/thread/739282
+    ///
+    /// - **All-optional struct collapses to nil**: If a struct stored via SwiftData has all
+    ///   optional fields and every field is nil, SwiftData treats the entire struct as nil.
+    ///   When the parent property is non-optional this produces a fatal crash:
+    ///   `"Passed nil for a non-optional keypath"`. Workarounds: make the property optional, or
+    ///   add one non-optional field to the struct.
+    ///   https://developer.apple.com/forums/thread/762562
+    ///
+    /// Further reading:
+    /// - https://wadetregaskis.com/swiftdata-pitfalls/
+    /// - https://fatbobman.com/en/posts/considerations-for-using-codable-and-enums-in-swiftdata-models/
     private enum CodingKeys: String, CodingKey { case moves, moveNr }
 
     public init(from decoder: Decoder) throws {
