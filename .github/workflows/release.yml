@@ -29,29 +29,18 @@ jobs:
 
       - name: Build release notes
         if: steps.tag.outputs.exists == 'false'
-        id: notes
         run: |
           VERSION="v${{ steps.version.outputs.version }}"
-          # Find the previous tag
           PREV_TAG=$(git tag --sort=-v:refname | head -n1)
           if [ -n "$PREV_TAG" ]; then
             RANGE="${PREV_TAG}..HEAD"
-            COMPARE="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}"
           else
             RANGE="HEAD"
-            COMPARE=""
           fi
-          # Build commit list: "- message  short_sha"
-          BODY=$(git log "$RANGE" --pretty=format:"- %s  %h" --no-merges)
-          if [ -n "$COMPARE" ]; then
-            BODY="${BODY}
-
----
-
-${COMPARE}"
+          git log "$RANGE" --pretty=format:'- %s  %h' --no-merges > /tmp/release_notes.md
+          if [ -n "$PREV_TAG" ]; then
+            printf '\n\n---\n\nhttps://github.com/%s/compare/%s...%s\n' "${{ github.repository }}" "$PREV_TAG" "$VERSION" >> /tmp/release_notes.md
           fi
-          # Write to file to avoid escaping issues
-          echo "$BODY" > /tmp/release_notes.md
 
       - name: Create release
         if: steps.tag.outputs.exists == 'false'
