@@ -11,6 +11,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Read version from package.json
         id: version
@@ -25,8 +27,34 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Build release notes
+        if: steps.tag.outputs.exists == 'false'
+        id: notes
+        run: |
+          VERSION="v${{ steps.version.outputs.version }}"
+          # Find the previous tag
+          PREV_TAG=$(git tag --sort=-v:refname | head -n1)
+          if [ -n "$PREV_TAG" ]; then
+            RANGE="${PREV_TAG}..HEAD"
+            COMPARE="https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}"
+          else
+            RANGE="HEAD"
+            COMPARE=""
+          fi
+          # Build commit list: "- message  short_sha"
+          BODY=$(git log "$RANGE" --pretty=format:"- %s  %h" --no-merges)
+          if [ -n "$COMPARE" ]; then
+            BODY="${BODY}
+
+---
+
+${COMPARE}"
+          fi
+          # Write to file to avoid escaping issues
+          echo "$BODY" > /tmp/release_notes.md
+
       - name: Create release
         if: steps.tag.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "v${{ steps.version.outputs.version }}" --generate-notes
+        run: gh release create "v${{ steps.version.outputs.version }}" --notes-file /tmp/release_notes.md
