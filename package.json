@@ -1,6 +1,6 @@
 {
   "name": "Vellum",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "type": "module",
   "scripts": {
     "bump": "bumpp --no-tag --no-push",
