@@ -13,5 +13,6 @@ let package = Package(
       dependencies: ["Vellum"],
       swiftSettings: [.enableExperimentalFeature("StrictConcurrency")]
     ),
-  ]
+  ],
+  swiftLanguageModes: [.v6]
 )
