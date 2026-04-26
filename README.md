@@ -27,11 +27,12 @@ Vellum is a cross-platform pure-Swift package without platform specific library 
 
 ### `EID` — Entity Identifier
 
-`EID` stands for **Entity Identifier**. It has two meaningful cases, not one, because there are two fundamentally different kinds of entities in a scene:
+`EID` stands for **Entity Identifier**. It has four cases — two for real entities and two sentinels:
 
 - **`.other(name)`** — a static, unique entity. Its name alone is enough to identify it because only one instance ever exists (e.g. `"white-king"`, `"board"`). Entities with this case should ideally have an entry in `initialStateDic` so their state can be restored during undo.
-- **`.clone(name, cloneId: UUID)`** — a dynamically created entity. Multiple copies of the same template can exist simultaneously (e.g. several cards dealt from a deck), so a UUID is required to tell them apart. The `name` identifies the template; the UUID identifies the specific instance.
+- **`.clone(name, cloneId: UUID)`** — a dynamically created entity. Multiple copies of the same template can exist simultaneously (e.g. black stones on a Go board — many are identical, so a UUID tells them apart). The `name` identifies the template; the UUID identifies the specific instance.
 - **`.none`** — a sentinel representing the absence of an entity.
+- **`.originalCloner`** — a sentinel meaning "return this clone to its original cloner". Vellum doesn't resolve it — the caller maps it to the actual destroyer entity at animation time.
 
 ## Examples
 
@@ -99,8 +100,9 @@ var currentlyAnimating: ActualMoveNr? = nil
 
 let browseResult = history.browseHistory(
   action: .undo,
-  animatingTowards: animatingTowards,   // pass current animation state, not hardcoded nil
-  currentlyAnimating: currentlyAnimating
+  animatingTowards: animatingTowards, // pass current animation state, not hardcoded nil
+  currentlyAnimating: currentlyAnimating,
+  presetDic: entityInitialStates
 )
 
 switch browseResult {

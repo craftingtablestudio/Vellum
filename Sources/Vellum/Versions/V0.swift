@@ -11,13 +11,14 @@ public enum v0 {
 
   /// Entity Identifier — the stable, serialisable identity of an entity across moves and saves.
   ///
-  /// Two cases because there are two fundamentally different kinds of entities:
   /// - `.other(name)`: a static, unique entity. Name alone is sufficient because only one instance
   ///   ever exists. Should have an entry in `initialStateDic` so its state can be restored on undo.
   /// - `.clone(name, cloneId)`: a dynamically created entity. Multiple copies of the same template
-  ///   can exist simultaneously, so a UUID distinguishes instances. `name` is the template;
-  ///   `cloneId` is the specific instance.
+  ///   can exist simultaneously (e.g. black stones on a Go board), so a UUID distinguishes
+  ///   instances. `name` is the template; `cloneId` is the specific instance.
   /// - `.none`: absence of an entity.
+  /// - `.originalCloner`: sentinel meaning "return this clone to its original cloner". Vellum
+  ///   doesn't resolve it — the caller maps it to the actual destroyer entity at animation time.
   public enum EID: Codable, Equatable, Hashable, Sendable, CustomStringConvertible,
     CustomDebugStringConvertible
   {
