@@ -84,14 +84,26 @@ print(history.moveNrActual.value)  // 3
 let browseResult = history.browseHistory(action: .undo, animatingTowards: nil, currentlyAnimating: nil)
 // browseResult == .animateMoves([(reverseMove, fromMoveNr: 3, toMoveNr: 2)])
 
-// moves.count is unchanged — undo only moves the cursor, not the ledger
-// (cursor is updated to toMoveNr.value after animating, see "Undoing a move and animate" below)
+// browseHistory is a pure query — it does not update history at all.
+// You update history.moveNr yourself after each animation step (see example below).
 print(history.moves.count)         // 3 (unchanged)
-print(history.moveNr)              // -1 (cursor not yet updated — see below)
-print(history.moveNrActual.value)  // 3 (cursor not yet updated — see below)
+print(history.moveNr)              // -1 (unchanged)
+print(history.moveNrActual.value)  // 3 (unchanged)
+
+// you can then animate the `browseResult` on your live scene
+switch browseResult {
+case .animateMoves(let movesAndNrs):
+  for (reverseMove, fromMoveNr, toMoveNr) in movesAndNrs {
+    await animateEntities(reverseMove)
+    // then after every reverse move you've animated, you can update the history.moveNr
+    history.moveNr = toMoveNr
+  }
+}
 ```
 
 **Example undo handling via animation:**
+
+If you `browseHistory` to quickly undo two moves, but then redo one move again before the first undo move finished animating, then the most natural behaviour is that it stops animating after undoing once. In order to support this behaviour, you have to pass some state on what you are animating according to the example below:
 
 ```swift
 // Your app tracks these as state — nil when idle, non-nil while an animation is running
