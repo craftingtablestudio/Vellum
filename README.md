@@ -203,15 +203,36 @@ print(history.moveNrActual.value)  // 5
 
 Types are namespaced by version (`v0`, `v1`, …) so breaking Codable changes never invalidate older saved data. Migration code can reference two versions simultaneously without any SPM version conflict.
 
+Vellum does not define top-level type aliases — that's up to the consumer. Define your own aliases to keep call sites clean:
+
 ```swift
 import Vellum
 
-// Unqualified names always point to the latest version
+public typealias EID = v0.EID
+public typealias EIDCustomDecodingError = v0.EIDCustomDecodingError
+public typealias SoundGroup = v0.SoundGroup
+public typealias PhysicsBodyMode = v0.PhysicsBodyMode
+public typealias MagneticHugsComponent = v0.MagneticHugsComponent
+public typealias ModelMetaComponent = v0.ModelMetaComponent
+public typealias EntityState = v0.EntityState
+public typealias CoreMoveTarget = v0.CoreMoveTarget
+public typealias CoreMove = v0.CoreMove
+public typealias Move = v0.Move
+public typealias HistoryBackup = v0.HistoryBackup
+public typealias MoveHistory = v0.MoveHistory
+```
+
+Then use the short names everywhere in your app:
+
+```swift
 var history = MoveHistory()
 let move = Move([[CoreMove(eid: myEID, target: .position([1, 0, 0]))]])
 try history.appendMove(move, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+```
 
-// Explicit versioning for migration
+For migrations, reference the version namespace directly:
+
+```swift
 let old = try decoder.decode(Vellum.v0.CoreMove.self, from: data)
 ```
 

@@ -22,7 +22,7 @@ public struct ActualMoveNr: Sendable, Equatable, Codable, Hashable {
   public init(clamping intValue: Int) { self.rawValue = UInt(clamping: intValue) }
 
   /// Returns `.lastMove` if the value equals `moves.count`, otherwise `.specific`.
-  public func toMoveNr(history: MoveHistory) -> MoveNr {
+  public func toMoveNr(history: v0.MoveHistory) -> MoveNr {
     if self.value == history.moves.count { return .lastMove }
     return .specific(rawValue)
   }
@@ -45,7 +45,7 @@ public enum MoveNr: Sendable, Equatable, Codable, Hashable {
     if intValue <= -1 { self = .lastMove } else { self = .specific(UInt(clamping: intValue)) }
   }
 
-  public func toActualMoveNr(history: MoveHistory) -> ActualMoveNr {
+  public func toActualMoveNr(history: v0.MoveHistory) -> ActualMoveNr {
     return switch self {
     case .lastMove: ActualMoveNr(clamping: history.moves.count)
     case .specific(let val): ActualMoveNr(val)
@@ -93,7 +93,7 @@ public enum MoveAddOrBrowseIndex: Codable, Sendable {
 /// `newMoveNr` is `-1` when browsing stops. `backupForDivergence` is non-nil when
 /// diverging from history (>1 move from end) and should be saved to `historyBackup`.
 public typealias MoveResult = (
-  addOrBrowseIndex: MoveAddOrBrowseIndex, newMoveNr: MoveNr, backupForDivergence: HistoryBackup?
+  addOrBrowseIndex: MoveAddOrBrowseIndex, newMoveNr: MoveNr, backupForDivergence: v0.HistoryBackup?
 )?
 
 /// The action requested when browsing history.
@@ -115,7 +115,7 @@ enum MoveComparisonResult {
 
 // MARK: - MoveHistory extension
 
-extension MoveHistory {
+extension v0.MoveHistory {
   public var moveNrSafe: MoveNr { MoveNr(clamping: self.moveNr) }
 
   /// The actual move number currently visible (resolves `-1` to `moves.count`).
@@ -147,15 +147,15 @@ extension MoveHistory {
   }
 
   /// All moves up to and including the current `moveNr`.
-  public var playedMoves: [Move] { return self.moves.slice(0, self.moveNrActual.value) }
+  public var playedMoves: [v0.Move] { return self.moves.slice(0, self.moveNrActual.value) }
 
-  private var lastVisibleMove: Move? { return self.playedMoves.at(-1) }
+  private var lastVisibleMove: v0.Move? { return self.playedMoves.at(-1) }
 
   // MARK: compareMove
 
   private func compareMove(
-    moveToAppend: Move,
-    initialStateDic: [EID: EntityState]
+    moveToAppend: v0.Move,
+    initialStateDic: [v0.EID: v0.EntityState]
   ) -> MoveComparisonResult {
     if moveNr != -1 && moveNr < moves.count {
       let movesToCompareWith = moves.slice(0, moveNr + 1)
@@ -208,8 +208,8 @@ extension MoveHistory {
   ///     `true` whenever `atIndex` is nil.
   /// - Returns: `MoveResult` — nil if the move was a no-op.
   @discardableResult public mutating func appendMove(
-    _ move: Move,
-    initialStateDic: [EID: EntityState],
+    _ move: v0.Move,
+    initialStateDic: [v0.EID: v0.EntityState],
     atIndex: MoveIndex?,
     setMoveNr: Bool
   ) throws -> MoveResult {
@@ -217,7 +217,7 @@ extension MoveHistory {
     if !errors.isEmpty {
       print("❗️[appendMove] Move not added because there are errors")
       for e in errors { print("  - \(e)") }
-      throw SaveStateError.invalidState
+      throw VellumError.invalidState
     }
 
     // Insert at a specific index
@@ -253,14 +253,14 @@ extension MoveHistory {
     case .isNew: break
     }
 
-    var backupForDivergence: HistoryBackup? = nil
+    var backupForDivergence: v0.HistoryBackup? = nil
 
     if self.moveNr > -1 {
       let divergenceMoveNr = self.moveNrActual.value
       let movesToTruncate = self.moves.count - divergenceMoveNr
 
       if movesToTruncate > 1 {
-        backupForDivergence = HistoryBackup(
+        backupForDivergence = v0.HistoryBackup(
           divergenceMoveNr: divergenceMoveNr,
           moves: self.moves.slice(divergenceMoveNr)
         )
@@ -286,7 +286,7 @@ extension MoveHistory {
   // MARK: browseHistory
 
   public enum BrowseResult {
-    case animateMoves(movesAndNrs: [(move: Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)])
+    case animateMoves(movesAndNrs: [(move: v0.Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)])
     case stopAnimating(stopAt: ActualMoveNr)
   }
 
@@ -295,10 +295,14 @@ extension MoveHistory {
   /// Call sites should:
   /// 1. Immediately save `animatingTowardsMoveNr` to the history.
   /// 2. After each animation completes, save the new `moveNr`.
+  ///
+  /// - Parameter presetDic: Initial entity states used to resolve undo moves eagerly.
+  ///   Clones not in `presetDic` with no target in history get `.magnet(.originalCloner)`.
   public func browseHistory(
     action: BrowseAction,
     animatingTowards: ActualMoveNr?,
-    currentlyAnimating: ActualMoveNr?
+    currentlyAnimating: ActualMoveNr?,
+    presetDic: [v0.EID: v0.EntityState] = [:]
   ) -> BrowseResult {
     if DEBUGGING_VELLUM { print("👀 [browseHistory]", action) }
 
@@ -326,7 +330,7 @@ extension MoveHistory {
 
     // REDOing
     if willAimFor.rawValue > wasAimingFor.rawValue {
-      var movesToAnimate: [(move: Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)] = []
+      var movesToAnimate: [(move: v0.Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)] = []
       let moves = self.moves.slice(wasAimingFor.value, willAimFor.value)
       for (moveToRedoIndex, moveToRedo) in moves.enumerated() {
         let oldMoveNr = ActualMoveNr(clamping: wasAimingFor.value + moveToRedoIndex)
@@ -344,15 +348,16 @@ extension MoveHistory {
         print("movesToUndo: moves.slice(\(willAimFor.value), \(wasAimingFor.value)) →", movesToUndo)
       }
 
-      var movesToAnimate: [(move: Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)] = []
+      var movesToAnimate: [(move: v0.Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)] = []
       for (moveToUndoIndex, moveToUndo) in movesToUndo.enumerated() {
         let originalMoveIndex = wasAimingFor.value - moveToUndoIndex - 1
         let movesToSearchThrough = self.moves.slice(0, originalMoveIndex)
         let chunks = MoveHistoryHelpers.moveToPreviousCoreMoves(
           moveToUndo,
-          searchThrough: movesToSearchThrough
+          searchThrough: movesToSearchThrough,
+          presetDic: presetDic
         )
-        let moveToUndo = Move(chunks)
+        let moveToUndo = v0.Move(chunks)
         let oldMoveNr = ActualMoveNr(clamping: originalMoveIndex + 1)
         let newMoveNr = ActualMoveNr(clamping: originalMoveIndex)
         movesToAnimate.append((moveToUndo, oldMoveNr, newMoveNr))

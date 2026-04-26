@@ -2,26 +2,31 @@
   import simd
 #endif
 
-enum MoveHistoryHelpers {
+public enum MoveHistoryHelpers {
   /// Finds the previous `CoreMove` for an `EID` by searching through the given moves in reverse.
   ///
   /// Collects the last known position/magnet, orientation, scale, opacity, modelMeta, and
-  /// huggerIndex — combining partial results if needed. If nothing is found, returns a
-  /// `CoreMove` with `revertToInitialState: true` so the caller can fall back to preset state.
-  static func findPreviousCoreMove(search targetEid: EID, searchThrough: [Move]) -> CoreMove {
+  /// huggerIndex — combining partial results if needed. After exhausting all history, fills
+  /// remaining nil fields from `presetDic`. For clones not in `presetDic` with no target found,
+  /// returns a CoreMove targeting `.magnet(.originalCloner)`.
+  public static func findPreviousCoreMove(
+    search targetEid: v0.EID,
+    searchThrough: [v0.Move],
+    presetDic: [v0.EID: v0.EntityState] = [:]
+  ) -> v0.CoreMove {
     struct FoundMoves {
-      let targetEid: EID
-      init(for targetEid: EID) { self.targetEid = targetEid }
+      let targetEid: v0.EID
+      init(for targetEid: v0.EID) { self.targetEid = targetEid }
 
       var position: SIMD3<Float>? = nil
-      var magnet: EID? = nil
+      var magnet: v0.EID? = nil
       var orientation: simd_quatf? = nil
       var scale: SIMD3<Float>? = nil
       var opacity: Float? = nil
-      var modelMeta: ModelMetaComponent? = nil
+      var modelMeta: v0.ModelMetaComponent? = nil
       var huggerIndex: Int? = nil
 
-      mutating func updateMatches(coreMove: CoreMove) {
+      mutating func updateMatches(coreMove: v0.CoreMove) {
         if coreMove.eid != targetEid { return }
         if self.position == nil && self.magnet == nil {
           self.position = coreMove.position
@@ -50,54 +55,81 @@ enum MoveHistoryHelpers {
       }
     }
 
-    let target: CoreMoveTarget =
+    // Resolve remaining nil fields from presetDic
+    if let preset = presetDic[targetEid] {
+      if found.position == nil && found.magnet == nil {
+        if let hugs = preset.magneticHugs, let magnet = hugs.hugging {
+          found.magnet = magnet
+        } else {
+          found.position = preset.position
+        }
+      }
+      if found.orientation == nil { found.orientation = preset.orientation }
+      if found.scale == nil { found.scale = preset.scale }
+      if found.opacity == nil { found.opacity = preset.opacity }
+      if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
+    }
+
+    let target: v0.CoreMoveTarget =
       if let magnet = found.magnet {
         .magnet(magnet, found.huggerIndex)
-      } else if let position = found.position { .position(position) } else { .unset }
+      } else if let position = found.position {
+        .position(position)
+      } else if targetEid.isClone {
+        .magnet(.originalCloner)
+      } else {
+        .unset
+      }
 
-    return CoreMove(
+    return v0.CoreMove(
       eid: targetEid,
       target: target,
       orientation: found.orientation,
       scale: found.scale,
       opacity: found.opacity,
-      modelMeta: found.modelMeta,
-      duration: nil,
-      revertToInitialState: true
+      modelMeta: found.modelMeta
     )
   }
 
   /// Converts a `Move` into its reverse CoreMoves by looking up each entity's previous state.
   ///
   /// Returns `[[CoreMove]]` — a chunked array matching the undo direction.
-  static func moveToPreviousCoreMoves(_ moveToUndo: Move, searchThrough: [Move]) -> [[CoreMove]] {
-    var result: [[CoreMove]] = []
-    var chunksToUndo: [[CoreMove]] = moveToUndo.chunks
+  static func moveToPreviousCoreMoves(
+    _ moveToUndo: v0.Move,
+    searchThrough: [v0.Move],
+    presetDic: [v0.EID: v0.EntityState] = [:]
+  ) -> [[v0.CoreMove]] {
+    var result: [[v0.CoreMove]] = []
+    var chunksToUndo: [[v0.CoreMove]] = moveToUndo.chunks
 
     while !chunksToUndo.isEmpty {
-      var chunkToUndo: [CoreMove] = chunksToUndo.removeLast()
-      var chunkUndone: [CoreMove] = []
+      var chunkToUndo: [v0.CoreMove] = chunksToUndo.removeLast()
+      var chunkUndone: [v0.CoreMove] = []
 
       while !chunkToUndo.isEmpty {
         let coreMoveToUndo = chunkToUndo.removeLast()
 
         if !chunksToUndo.isEmpty {
-          let previousChunks = Move(chunksToUndo)
-          var previousMove1 = Self.findPreviousCoreMove(
-            search: coreMoveToUndo.eid,
-            searchThrough: [previousChunks]
-          )
-          if !previousMove1.shouldRevertEntireState {
-            if let d = coreMoveToUndo.duration { previousMove1.duration = d }
-            if let s = coreMoveToUndo.sound { previousMove1.sound = s }
-            chunkUndone.append(previousMove1)
-            continue
+          let appearsInEarlierChunks = chunksToUndo.contains { $0.contains { $0.eid == coreMoveToUndo.eid } }
+          if appearsInEarlierChunks {
+            let previousChunks = v0.Move(chunksToUndo)
+            var previousMove1 = Self.findPreviousCoreMove(
+              search: coreMoveToUndo.eid,
+              searchThrough: [previousChunks]
+            )
+            if !previousMove1.hasNoTarget {
+              if let d = coreMoveToUndo.duration { previousMove1.duration = d }
+              if let s = coreMoveToUndo.sound { previousMove1.sound = s }
+              chunkUndone.append(previousMove1)
+              continue
+            }
           }
         }
 
         var previousMove2 = Self.findPreviousCoreMove(
           search: coreMoveToUndo.eid,
-          searchThrough: searchThrough
+          searchThrough: searchThrough,
+          presetDic: presetDic
         )
         if let d = coreMoveToUndo.duration { previousMove2.duration = d }
         if let s = coreMoveToUndo.sound { previousMove2.sound = s }
@@ -109,7 +141,7 @@ enum MoveHistoryHelpers {
     return result
   }
 
-  private static func sameMagnetSameSideUpSameIndex(_ lhs: CoreMove, _ rhs: CoreMove?) -> Bool {
+  private static func sameMagnetSameSideUpSameIndex(_ lhs: v0.CoreMove, _ rhs: v0.CoreMove?) -> Bool {
     guard let rhs else { return false }
     let allOk =
       lhs.position == rhs.position && lhs.magnet == rhs.magnet && lhs.eid == rhs.eid
@@ -123,12 +155,12 @@ enum MoveHistoryHelpers {
   }
 
   static func coreMoveUnchanged(
-    coreMove: CoreMove,
-    movesToCompareWith: [Move],
-    initialStateDic: [EID: EntityState]
+    coreMove: v0.CoreMove,
+    movesToCompareWith: [v0.Move],
+    initialStateDic: [v0.EID: v0.EntityState]
   ) -> Bool {
     let eid = coreMove.eid
-    if eid == EID.none { return false }
+    if eid == v0.EID.none { return false }
     var coreMoveToCompare = coreMove
     var lastPlayedCoreMove = MoveHistoryHelpers.findPreviousCoreMove(
       search: eid,

@@ -1,11 +1,12 @@
 import Foundation
 
-extension EID {
+extension v0.EID {
   public var name: String {
     switch self {
     case .clone(let name, _): return name
     case .other(let name): return name
     case .none: return ""
+    case .originalCloner: return ""
     }
   }
 
@@ -22,4 +23,8 @@ extension EID {
     default: return false
     }
   }
+
+  /// True when this is a clone EID whose name uses the "GroupName__groupclone__ChildName" format,
+  /// indicating it originated from a `ClonableGroupComponent` rather than an `EntityCloner`.
+  public var isGroupClone: Bool { isClone && name.contains("__groupclone__") }
 }

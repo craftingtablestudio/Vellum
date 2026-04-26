@@ -24,6 +24,10 @@ public enum v0 {
     case clone(name: String, cloneId: UUID)
     case other(name: String)
     case none
+    /// Sentinel meaning "return this clone to its original cloner".
+    /// Vellum doesn't resolve it — the caller (e.g. Magisterium) maps it
+    /// to the actual destroyer entity at animation time.
+    case originalCloner
 
     // ╔═══════════════════════════╗
     // ║ CUSTOM STRING CONVERTABLE ║
@@ -36,6 +40,7 @@ public enum v0 {
         return "EID.clone(\(name):\(shortUUID))"
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
+      case .originalCloner: return "EID.originalCloner"
       }
     }
 
@@ -50,11 +55,13 @@ public enum v0 {
       case .clone(let name, let uuid): return "EID.clone(\(name):\(uuid))"
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
+      case .originalCloner: return "EID.originalCloner"
       }
     }
 
     public static func fromStringValue(_ stringRepresentation: String) throws -> EID {
       if stringRepresentation == "EID.none" { return EID.none }
+      if stringRepresentation == "EID.originalCloner" { return EID.originalCloner }
       if stringRepresentation.starts(with: "EID.clone(") {
         let trimmed = String(stringRepresentation.dropFirst("EID.clone(".count).dropLast())
         let components = trimmed.split(":")
@@ -286,14 +293,6 @@ public enum v0 {
     public var sound: SoundGroup?
     /// Index used when adding at a specific hugger slot.
     public var huggerIndex: Int?
-    /// Set by `browseHistory` when an entity has no recorded prior state in the ledger — meaning
-    /// the caller must resolve where it came from. Never persisted.
-    ///
-    /// - `.other` entities: look up their original state in `initialStateDic`.
-    /// - `.clone` entities: return them to their cloner, which requires live runtime state only
-    ///   the caller has.
-    public var revertToInitialState: Bool
-
     public init(
       eid: EID,
       target: CoreMoveTarget = .unset,
@@ -302,8 +301,7 @@ public enum v0 {
       opacity: Float? = nil,
       modelMeta: ModelMetaComponent? = nil,
       duration: Duration? = nil,
-      sound: SoundGroup? = nil,
-      revertToInitialState: Bool = false
+      sound: SoundGroup? = nil
     ) {
       self.eid = eid
       self.orientation = orientation
@@ -312,7 +310,6 @@ public enum v0 {
       self.modelMeta = modelMeta
       self.duration = duration
       self.sound = sound
-      self.revertToInitialState = revertToInitialState
       switch target {
       case .position(let position):
         self.position = position
@@ -335,7 +332,7 @@ public enum v0 {
 
     public enum CodingKeys: String, CodingKey {
       case eid, magnet, position, orientation, scale, opacity, modelMeta, duration, sound,
-        huggerIndex, revertToInitialState
+        huggerIndex
     }
 
     public init(from decoder: Decoder) throws {
@@ -353,8 +350,6 @@ public enum v0 {
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
       self.huggerIndex = try container.decodeIfPresent(Int.self, forKey: .huggerIndex)
-      self.revertToInitialState =
-        try container.decodeIfPresent(Bool.self, forKey: .revertToInitialState) ?? false
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -373,7 +368,6 @@ public enum v0 {
       try container.encodeIfPresent(self.duration, forKey: .duration)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggerIndex, forKey: .huggerIndex)
-      if self.revertToInitialState { try container.encode(true, forKey: .revertToInitialState) }
     }
   }
 
