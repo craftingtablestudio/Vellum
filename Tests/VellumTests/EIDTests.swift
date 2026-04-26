@@ -3,7 +3,7 @@ import Testing
 import Vellum
 
 struct EIDTests {
-  /// `.originalCloner` encodes to the fixed JSON string "EID.originalCloner"
+  /// Average: `.originalCloner` encodes to the fixed JSON string "EID.originalCloner"
   @Test func originalCloner_encodesToStringFormat() throws {
     let encoder = JSONEncoder()
     let data = try encoder.encode(EID.originalCloner)
@@ -11,20 +11,12 @@ struct EIDTests {
     #expect(string == "\"EID.originalCloner\"")
   }
 
-  /// The JSON string "EID.originalCloner" decodes back to `.originalCloner`
+  /// Average: the JSON string "EID.originalCloner" decodes back to `.originalCloner`
   @Test func originalCloner_decodesFromStringFormat() throws {
     let json = "\"EID.originalCloner\""
     let decoder = JSONDecoder()
     let eid = try decoder.decode(EID.self, from: json.data(using: .utf8)!)
     #expect(eid == .originalCloner)
-  }
-
-  /// JSON-encoding then decoding `.originalCloner` gives back the same value
-  @Test func originalCloner_roundTrips() throws {
-    let encoder = JSONEncoder()
-    let decoder = JSONDecoder()
-    let decoded = try decoder.decode(EID.self, from: try encoder.encode(EID.originalCloner))
-    #expect(decoded == .originalCloner)
   }
 
   /// `.originalCloner` is not treated as a clone — it is the original source

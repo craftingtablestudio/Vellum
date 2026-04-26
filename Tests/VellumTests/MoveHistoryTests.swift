@@ -15,7 +15,7 @@ struct AppendMoveTests {
     #expect(history.moves.count == 1)
   }
 
-  /// Appending an identical move returns nil — duplicate is ignored
+  /// Average: appending an identical move returns nil — duplicate is ignored
   @Test func appendMove_duplicateMove_isIgnored() throws {
     let move = mock.move(eid: "E1", target: .position([1, 0, 0]))
     var history = MoveHistory()
@@ -24,7 +24,7 @@ struct AppendMoveTests {
     #expect(result == nil)
   }
 
-  /// While browsing, replaying the next move in history returns `.browsedToIndex` not `.addedAtIndex`
+  /// Average: while browsing, replaying the next move in history returns `.browsedToIndex` not `.addedAtIndex`
   @Test func appendMove_redoesMoveWhenMatchesNextInHistory() throws {
     let moveA = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let moveB = mock.move(eid: "E1", target: .position([2, 0, 0]))
@@ -113,6 +113,7 @@ struct BrowseHistoryTests {
     )
     if case .animateMoves(let movesAndNrs) = result {
       #expect(movesAndNrs.count == 1)
+      // ActualMoveNr is the resolved integer: MoveNr's -1 sentinel is replaced with the real count
       #expect(movesAndNrs[0].oldMoveNr == ActualMoveNr(1))
       #expect(movesAndNrs[0].newMoveNr == ActualMoveNr(0))
     } else {
@@ -135,6 +136,7 @@ struct BrowseHistoryTests {
     if case .animateMoves(let movesAndNrs) = result {
       #expect(movesAndNrs.count == 1)
       #expect(movesAndNrs[0].move == moveA)
+      // ActualMoveNr is the resolved integer: MoveNr's -1 sentinel is replaced with the real count
       #expect(movesAndNrs[0].oldMoveNr == ActualMoveNr(0))
       #expect(movesAndNrs[0].newMoveNr == ActualMoveNr(1))
     } else {
@@ -236,7 +238,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// Undoing a move that followed a capture reverts the piece to its post-capture position
+  /// Complex: undoing a move that followed a capture reverts the piece to its post-capture position
   @Test func chess_revertPawnBackToStateAfterCapture() {
     let history = MoveHistory(moves: [
       // white pawn advances two squares, vacating A2
@@ -267,7 +269,7 @@ struct MoveToPreviousCoreMovesTests {
     #expect(reverseMoves == [Move([[mock.coreMove(eid: "BP1", target: .magnet("A2"))]])])
   }
 
-  /// Undoing a subsequent move of a captured piece reverts it to the position it was moved to on capture
+  /// Complex: undoing a subsequent move of a captured piece reverts it to the position it was moved to on capture
   @Test func chess_revertCapturedPieceBackToStateAfterCapture() {
     let ROOK_POSITION: SIMD3<Float> = [0.22, 0, 0.18]  // just off the board edge after being displaced
     let history = MoveHistory(moves: [
@@ -446,7 +448,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// Undoing a move that carried a stack of cards reverts all stacked cards to their initial state
+  /// Complex: undoing a move that carried a stack of cards reverts all stacked cards to their initial state
   @Test func cards_revertMove_andCarriedStack() {
     let INITIAL_POSITION: SIMD3<Float> = [0, 0, 0]
     // Card:UUID1 started at INITIAL_POSITION with A, B, C already stacked on it
@@ -555,7 +557,7 @@ struct MoveToPreviousCoreMovesTests {
   }
 
   /// Complex: splitting a tower and undoing restores each card to its pre-split stack position
-  @Test func splitTowerAndBringHalf() {
+  @Test func cards_revertTowerSplit() {
     let POS_CARD1: SIMD3<Float> = [5, 0, 0]
     let history = MoveHistory(moves: [
       // card A stacks on card 1
@@ -653,7 +655,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// Undoing an opacity-only move when a prior matching move exists restores the prior opacity
+  /// Complex: undoing an opacity-only move when a prior matching move exists restores the prior opacity
   @Test func cards_revertModelChangeAsSubsequentMove() {
     let history = MoveHistory(moves: [
       // pack opens
@@ -702,7 +704,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// Undoing an opacity change preserves the entity's position from a prior move
+  /// Complex: undoing an opacity change preserves the entity's position from a prior move
   @Test func cards_moveThenOpenPack() {
     let POS: SIMD3<Float> = [5, 0, 0]
     let history = MoveHistory(moves: [
@@ -746,13 +748,13 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// A Go stone's is considered a "clone" entity because a bowl with stones continuously clones new stones.
-  /// When a Go move is undone, the placed Go Stone is supposed to move back to its bowl.
-  /// This is represented as `target: .magnet(.originalCloner)`, meaning "send this back to wherever it came from"
-  /// Boundary: clone has no prior history and no preset entry — both fallback paths exhausted
+  /// Boundary: clone has no prior history and no preset entry — both fallback paths exhausted.
+  /// When undone, a clone that has never appeared before returns to `.originalCloner` (its source bowl).
   @Test func go_undoCloneFirstMove_returnsOriginalCloner() {
+    // Go stones are clone entities — each new stone is cloned from a bowl.
+    // A stone placed for the first time has no prior position in history and no entry in presetDic,
+    // so the reverse move uses `.originalCloner` as the target, meaning "send it back to its source".
     let history = MoveHistory(moves: [
-      // A Go stone without any previous history is created (cloned) and moves to a target magnet on the Go board.
       Move([[mock.coreMove(eidClone: "black", target: .magnet("D4"))]])
     ])
 
@@ -820,7 +822,7 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// Duration from the original move is propagated to the undo move
+  /// Complex: duration from the original move is propagated to the undo move
   @Test func cards_revertModelChangeWithDuration() {
     // cards start invisible before the fade-in
     let presetDic: [EID: EntityState] = [
