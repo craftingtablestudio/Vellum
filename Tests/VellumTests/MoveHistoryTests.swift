@@ -304,19 +304,21 @@ struct MoveToPreviousCoreMovesTests {
     let history = MoveHistory(moves: [
       // corner setup: 3 white stones form a group at the bottom-left corner (A1, B1, A2),
       // 2 black stones already block two of the three external liberties (C1 and A3)
-      Move([[
-        mock.coreMove(eidClone: "white1", target: .magnet("A1")),  // white in the corner
-        mock.coreMove(eidClone: "white2", target: .magnet("B1")),  // white right of corner
-        mock.coreMove(eidClone: "white3", target: .magnet("A2")),  // white above corner
-        mock.coreMove(eidClone: "blackA", target: .magnet("C1")),  // black blocking B1's right liberty
-        mock.coreMove(eidClone: "blackB", target: .magnet("A3")),  // black blocking A2's top liberty
-      ]]),
+      Move([
+        [
+          mock.coreMove(eidClone: "white1", target: .magnet("A1")),  // white in the corner
+          mock.coreMove(eidClone: "white2", target: .magnet("B1")),  // white right of corner
+          mock.coreMove(eidClone: "white3", target: .magnet("A2")),  // white above corner
+          mock.coreMove(eidClone: "blackA", target: .magnet("C1")),  // black blocking B1's right liberty
+          mock.coreMove(eidClone: "blackB", target: .magnet("A3")),  // black blocking A2's top liberty
+        ]
+      ]),
       // unrelated move elsewhere on the board — confirms black5 doesn't pollute the white-stone lookup
       Move([[mock.coreMove(eidClone: "black5", target: .magnet("Q10"))]]),
       Move([
         [
           // black fills the last liberty at B2, completing the surround of the three white stones
-          mock.coreMove(eidClone: "black1", target: .magnet("B2")),
+          mock.coreMove(eidClone: "black1", target: .magnet("B2"))
         ],
         [
           // surrounded white stones are captured — all go to the black player's bowl
@@ -347,7 +349,7 @@ struct MoveToPreviousCoreMovesTests {
             mock.coreMove(eidClone: "white1", target: .magnet("A1")),  // returns to corner
           ],
           [
-            mock.coreMove(eidClone: "black1", target: .originalCloner),  // fresh clone — returns to its bowl
+            mock.coreMove(eidClone: "black1", target: .originalCloner)  // fresh clone — returns to its bowl
           ],
         ])
       ]
@@ -397,7 +399,7 @@ struct MoveToPreviousCoreMovesTests {
             mock.coreMove(eidClone: "white3", target: .magnet("A3")),
             mock.coreMove(eidClone: "white2", target: .magnet("A2")),
             mock.coreMove(eidClone: "white1", target: .magnet("A1")),
-          ], [mock.coreMove(eidClone: "black")],
+          ], [mock.coreMove(eidClone: "black", target: .originalCloner)],
         ])
       ]
     )
