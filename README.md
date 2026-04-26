@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/vellum_logo.png" alt="vellum" width="300" />
+  <img src="./assets/vellum_logo.png" alt="vellum" width="300" />
 </p>
 
 # Vellum 📜
