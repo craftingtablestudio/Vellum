@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/vellum_logo.png" alt="vellum" width="300" />
+  <img src="./assets/vellum_logo.png" alt="vellum" width="300" />
 </p>
 
 # Vellum 📜
@@ -27,11 +27,12 @@ Vellum is a cross-platform pure-Swift package without platform specific library 
 
 ### `EID` — Entity Identifier
 
-`EID` stands for **Entity Identifier**. It has two meaningful cases, not one, because there are two fundamentally different kinds of entities in a scene:
+`EID` stands for **Entity Identifier**. It has four cases — two for real entities and two sentinels:
 
 - **`.other(name)`** — a static, unique entity. Its name alone is enough to identify it because only one instance ever exists (e.g. `"white-king"`, `"board"`). Entities with this case should ideally have an entry in `initialStateDic` so their state can be restored during undo.
-- **`.clone(name, cloneId: UUID)`** — a dynamically created entity. Multiple copies of the same template can exist simultaneously (e.g. several cards dealt from a deck), so a UUID is required to tell them apart. The `name` identifies the template; the UUID identifies the specific instance.
+- **`.clone(name, cloneId: UUID)`** — a dynamically created entity. Multiple copies of the same template can exist simultaneously (e.g. black stones on a Go board — many are identical, so a UUID tells them apart). The `name` identifies the template; the UUID identifies the specific instance.
 - **`.none`** — a sentinel representing the absence of an entity.
+- **`.originalCloner`** — a sentinel meaning "return this clone to its original cloner". Vellum doesn't resolve it — the caller maps it to the actual destroyer entity at animation time.
 
 ## Examples
 
@@ -83,14 +84,26 @@ print(history.moveNrActual.value)  // 3
 let browseResult = history.browseHistory(action: .undo, animatingTowards: nil, currentlyAnimating: nil)
 // browseResult == .animateMoves([(reverseMove, fromMoveNr: 3, toMoveNr: 2)])
 
-// moves.count is unchanged — undo only moves the cursor, not the ledger
-// (cursor is updated to toMoveNr.value after animating, see "Undoing a move and animate" below)
+// browseHistory is a pure query — it does not update history at all.
+// You update history.moveNr yourself after each animation step (see example below).
 print(history.moves.count)         // 3 (unchanged)
-print(history.moveNr)              // -1 (cursor not yet updated — see below)
-print(history.moveNrActual.value)  // 3 (cursor not yet updated — see below)
+print(history.moveNr)              // -1 (unchanged)
+print(history.moveNrActual.value)  // 3 (unchanged)
+
+// you can then animate the `browseResult` on your live scene
+switch browseResult {
+case .animateMoves(let movesAndNrs):
+  for (reverseMove, fromMoveNr, toMoveNr) in movesAndNrs {
+    await animateEntities(reverseMove)
+    // then after every reverse move you've animated, you can update the history.moveNr
+    history.moveNr = toMoveNr
+  }
+}
 ```
 
 **Example undo handling via animation:**
+
+If you `browseHistory` to quickly undo two moves, but then redo one move again before the first undo move finished animating, then the most natural behaviour is that it stops animating after undoing once. In order to support this behaviour, you have to pass some state on what you are animating according to the example below:
 
 ```swift
 // Your app tracks these as state — nil when idle, non-nil while an animation is running
@@ -99,8 +112,9 @@ var currentlyAnimating: ActualMoveNr? = nil
 
 let browseResult = history.browseHistory(
   action: .undo,
-  animatingTowards: animatingTowards,   // pass current animation state, not hardcoded nil
-  currentlyAnimating: currentlyAnimating
+  animatingTowards: animatingTowards, // pass current animation state, not hardcoded nil
+  currentlyAnimating: currentlyAnimating,
+  presetDic: entityInitialStates
 )
 
 switch browseResult {

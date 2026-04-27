@@ -13,9 +13,15 @@ struct MoveNrTests {
 
   /// MoveNr(clamping:) with any negative value collapses to `.lastMove` rather than `.specific`
   /// Boundary: negative is out-of-range — the floor of the valid input domain
-  @Test func clamping_negativeInt_becomesLastMove() { #expect(MoveNr(clamping: -99) == .lastMove) }
+  @Test func clamping_negativeInt_becomesLastMove() {
+    #expect(MoveNr(clamping: -99) == .lastMove)
+    #expect(MoveNr(clamping: -2) == .lastMove)
+    #expect(MoveNr(clamping: -1) == .lastMove)
+    #expect(MoveNr(clamping: 0) != .lastMove)
+    #expect(MoveNr(clamping: 1) != .lastMove)
+  }
 
-  /// Round-tripping through JSON preserves both cases
+  /// Average: round-tripping through JSON preserves both cases
   @Test func encode_decode_roundTrip() throws {
     let encoder = JSONEncoder()
     let decoder = JSONDecoder()
@@ -38,7 +44,7 @@ struct MoveHistoryPropertyTests {
     #expect(history.playedMoves.isEmpty)
   }
 
-  /// `playedMoves` is sliced to `moveNr` when browsing
+  /// Average: `playedMoves` is sliced to `moveNr` when browsing
   @Test func browsingHistory_playedMovesIsSliced() {
     let move1 = mock.move(eid: "E1", target: .position([1, 0, 0]))
     let move2 = mock.move(eid: "E2", target: .position([2, 0, 0]))
