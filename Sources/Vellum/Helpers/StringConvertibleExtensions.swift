@@ -8,3 +8,10 @@ extension v0.MagneticHugsComponent: CustomStringConvertible, CustomDebugStringCo
 
   public var debugDescription: String { return self.description }
 }
+
+extension v0.ModelMetaComponent: CustomStringConvertible, CustomDebugStringConvertible {
+  public var description: String {
+    return "ModelMetaComponent(name: \"\(name)\", pathTextureDic: \(pathTextureDic))"
+  }
+  public var debugDescription: String { return description }
+}
