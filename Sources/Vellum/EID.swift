@@ -7,6 +7,7 @@ extension v0.EID {
     case .other(let name): return name
     case .none: return ""
     case .originalCloner: return ""
+    case .parent: return ""
     }
   }
 

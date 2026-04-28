@@ -29,6 +29,12 @@ public enum v0 {
     /// Vellum doesn't resolve it — the caller (e.g. Magisterium) maps it
     /// to the actual destroyer entity at animation time.
     case originalCloner
+    /// Sentinel meaning "relative to this entity's parent in the hierarchy".
+    /// Used in `CoreMove.relativeTo` and `EntityState.relativeTo` to indicate
+    /// that positions/orientations are stored in parent-local space rather than
+    /// root space. Vellum doesn't resolve it — the caller maps it to the actual
+    /// parent entity at animation time.
+    case parent
 
     // ╔═══════════════════════════╗
     // ║ CUSTOM STRING CONVERTABLE ║
@@ -42,6 +48,7 @@ public enum v0 {
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
       case .originalCloner: return "EID.originalCloner"
+      case .parent: return "EID.parent"
       }
     }
 
@@ -57,12 +64,14 @@ public enum v0 {
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
       case .originalCloner: return "EID.originalCloner"
+      case .parent: return "EID.parent"
       }
     }
 
     public static func fromStringValue(_ stringRepresentation: String) throws -> EID {
       if stringRepresentation == "EID.none" { return EID.none }
       if stringRepresentation == "EID.originalCloner" { return EID.originalCloner }
+      if stringRepresentation == "EID.parent" { return EID.parent }
       if stringRepresentation.starts(with: "EID.clone(") {
         let trimmed = String(stringRepresentation.dropFirst("EID.clone(".count).dropLast())
         let components = trimmed.split(":")
@@ -202,6 +211,10 @@ public enum v0 {
     public var modelMeta: ModelMetaComponent?
     /// nil represents no opacity override (i.e. fully opaque / 1.0).
     public var opacity: Float?
+    /// The coordinate space for position/orientation values.
+    /// - `nil` (default): root-space — positions and orientations are relative to rootEntity.
+    /// - `.parent`: parent-local space — values are relative to the entity's parent in the hierarchy.
+    public var relativeTo: EID?
 
     public init(
       eid: EID,
@@ -211,7 +224,8 @@ public enum v0 {
       physicsMode: PhysicsBodyMode? = nil,
       magneticHugs: MagneticHugsComponent? = nil,
       modelMeta: ModelMetaComponent? = nil,
-      opacity: Float? = nil
+      opacity: Float? = nil,
+      relativeTo: EID? = nil
     ) {
       self.eid = eid
       self.position = position
@@ -221,6 +235,7 @@ public enum v0 {
       self.magneticHugs = magneticHugs
       self.modelMeta = modelMeta
       self.opacity = opacity
+      self.relativeTo = relativeTo
     }
 
     // ╔═════════╗
@@ -228,7 +243,8 @@ public enum v0 {
     // ╚═════════╝
 
     enum CodingKeys: String, CodingKey {
-      case eid, position, orientation, scale, physicsMode, magneticHugs, modelMeta, opacity
+      case eid, position, orientation, scale, physicsMode, magneticHugs, modelMeta, opacity,
+        relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -247,6 +263,7 @@ public enum v0 {
       )
       self.modelMeta = try container.decodeIfPresent(ModelMetaComponent.self, forKey: .modelMeta)
       self.opacity = try container.decodeIfPresent(Float.self, forKey: .opacity)
+      self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -263,6 +280,7 @@ public enum v0 {
       try container.encodeIfPresent(self.magneticHugs, forKey: .magneticHugs)
       try container.encodeIfPresent(self.modelMeta, forKey: .modelMeta)
       try container.encodeIfPresent(self.opacity, forKey: .opacity)
+      try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
     }
   }
 
@@ -294,6 +312,11 @@ public enum v0 {
     public var sound: SoundGroup?
     /// Index used when adding at a specific hugger slot.
     public var huggerIndex: Int?
+    /// The coordinate space for position/orientation values.
+    /// - `nil` (default): root-space — positions and orientations are relative to rootEntity.
+    /// - `.parent`: parent-local space — values are relative to the entity's parent in the hierarchy.
+    /// All existing moves with `relativeTo == nil` behave identically (backwards-compatible).
+    public var relativeTo: EID?
     public init(
       eid: EID,
       target: CoreMoveTarget = .unset,
@@ -302,7 +325,8 @@ public enum v0 {
       opacity: Float? = nil,
       modelMeta: ModelMetaComponent? = nil,
       duration: Duration? = nil,
-      sound: SoundGroup? = nil
+      sound: SoundGroup? = nil,
+      relativeTo: EID? = nil
     ) {
       self.eid = eid
       self.orientation = orientation
@@ -311,6 +335,7 @@ public enum v0 {
       self.modelMeta = modelMeta
       self.duration = duration
       self.sound = sound
+      self.relativeTo = relativeTo
       switch target {
       case .position(let position):
         self.position = position
@@ -333,7 +358,7 @@ public enum v0 {
 
     public enum CodingKeys: String, CodingKey {
       case eid, magnet, position, orientation, scale, opacity, modelMeta, duration, sound,
-        huggerIndex
+        huggerIndex, relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -351,6 +376,7 @@ public enum v0 {
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
       self.huggerIndex = try container.decodeIfPresent(Int.self, forKey: .huggerIndex)
+      self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -369,6 +395,7 @@ public enum v0 {
       try container.encodeIfPresent(self.duration, forKey: .duration)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggerIndex, forKey: .huggerIndex)
+      try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
     }
   }
 

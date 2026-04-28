@@ -25,12 +25,18 @@ public enum MoveHistoryHelpers {
       var opacity: Float? = nil
       var modelMeta: v0.ModelMetaComponent? = nil
       var huggerIndex: Int? = nil
+      /// Tracks the coordinate space of the found position/orientation. Set from the same
+      /// CoreMove that provided the position (or magnet), so the values and their space stay paired.
+      var relativeTo: v0.EID? = nil
 
       mutating func updateMatches(coreMove: v0.CoreMove) {
         if coreMove.eid != targetEid { return }
         if self.position == nil && self.magnet == nil {
           self.position = coreMove.position
           self.magnet = coreMove.magnet
+          // Capture relativeTo from the same move that provided the spatial target,
+          // so position values and their coordinate space stay paired.
+          self.relativeTo = coreMove.relativeTo
         }
         if self.orientation == nil { self.orientation = coreMove.orientation }
         if self.scale == nil { self.scale = coreMove.scale }
@@ -87,7 +93,8 @@ public enum MoveHistoryHelpers {
       orientation: found.orientation,
       scale: found.scale,
       opacity: found.opacity,
-      modelMeta: found.modelMeta
+      modelMeta: found.modelMeta,
+      relativeTo: found.relativeTo
     )
   }
 

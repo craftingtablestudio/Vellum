@@ -85,6 +85,7 @@ extension v0.CoreMove {
     if scale == nil { self.scale = initialState.scale ?? [1, 1, 1] }
     if opacity == nil { self.opacity = initialState.opacity ?? 1.0 }
     if modelMeta == nil { self.modelMeta = initialState.modelMeta ?? nil }
+    if relativeTo == nil { self.relativeTo = initialState.relativeTo }
   }
 
   /// Nils out any property that is nil in the given reference CoreMove.
@@ -98,6 +99,7 @@ extension v0.CoreMove {
     if otherCoreMove.duration == nil { self.duration = nil }
     if otherCoreMove.sound == nil { self.sound = nil }
     if otherCoreMove.huggerIndex == nil { self.huggerIndex = nil }
+    if otherCoreMove.relativeTo == nil { self.relativeTo = nil }
   }
 
   /// Returns a copy of this CoreMove with the given field cleared.
@@ -114,6 +116,7 @@ extension v0.CoreMove {
     case .duration: m.duration = nil
     case .sound: m.sound = nil
     case .huggerIndex: m.huggerIndex = nil
+    case .relativeTo: m.relativeTo = nil
     }
     return m
   }
@@ -144,6 +147,7 @@ extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
     if let duration { arr.append("duration: \(duration)") }
     if let sound { arr.append("sound: \(sound)") }
     if let huggerIndex { arr.append("huggerIndex: \(huggerIndex)") }
+    if let relativeTo { arr.append("relativeTo: \(relativeTo)") }
     return arr.join(", ") + ")"
   }
   public var debugDescription: String { return description }
