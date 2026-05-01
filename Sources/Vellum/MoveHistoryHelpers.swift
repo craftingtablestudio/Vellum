@@ -73,7 +73,7 @@ public enum MoveHistoryHelpers {
           found.relativeTo = preset.relativeTo
         }
       }
-      if found.orientation == nil { found.orientation = preset.orientation ?? simd_quatf.getNonRotated() }
+      if found.orientation == nil { found.orientation = preset.orientation }
       if found.scale == nil { found.scale = preset.scale }
       if found.opacity == nil { found.opacity = preset.opacity }
       if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
@@ -82,13 +82,9 @@ public enum MoveHistoryHelpers {
     let target: v0.CoreMoveTarget =
       if let magnet = found.magnet {
         .magnet(magnet, found.huggerIndex)
-      } else if let position = found.position {
-        .position(position)
-      } else if targetEid.isClone {
+      } else if let position = found.position { .position(position) } else if targetEid.isClone {
         .magnet(.originalCloner)
-      } else {
-        .unset
-      }
+      } else { .unset }
 
     return v0.CoreMove(
       eid: targetEid,
@@ -120,7 +116,9 @@ public enum MoveHistoryHelpers {
         let coreMoveToUndo = chunkToUndo.removeLast()
 
         if !chunksToUndo.isEmpty {
-          let appearsInEarlierChunks = chunksToUndo.contains { $0.contains { $0.eid == coreMoveToUndo.eid } }
+          let appearsInEarlierChunks = chunksToUndo.contains {
+            $0.contains { $0.eid == coreMoveToUndo.eid }
+          }
           if appearsInEarlierChunks {
             let previousChunks = v0.Move(chunksToUndo)
             var previousMove1 = Self.findPreviousCoreMove(
@@ -151,7 +149,8 @@ public enum MoveHistoryHelpers {
     return result
   }
 
-  private static func sameMagnetSameSideUpSameIndex(_ lhs: v0.CoreMove, _ rhs: v0.CoreMove?) -> Bool {
+  private static func sameMagnetSameSideUpSameIndex(_ lhs: v0.CoreMove, _ rhs: v0.CoreMove?) -> Bool
+  {
     guard let rhs else { return false }
     let allOk =
       lhs.position == rhs.position && lhs.magnet == rhs.magnet && lhs.eid == rhs.eid
