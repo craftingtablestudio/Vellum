@@ -68,9 +68,12 @@ public enum MoveHistoryHelpers {
           found.magnet = magnet
         } else {
           found.position = preset.position
+          // Keep position and relativeTo paired — the preset position is in whatever
+          // coordinate space the preset was captured in (e.g. .parent for nested entities).
+          found.relativeTo = preset.relativeTo
         }
       }
-      if found.orientation == nil { found.orientation = preset.orientation }
+      if found.orientation == nil { found.orientation = preset.orientation ?? simd_quatf.getNonRotated() }
       if found.scale == nil { found.scale = preset.scale }
       if found.opacity == nil { found.opacity = preset.opacity }
       if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
