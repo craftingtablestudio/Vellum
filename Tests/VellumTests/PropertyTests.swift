@@ -78,3 +78,111 @@ struct MoveHistoryPropertyTests {
     #expect(history.cannotRedo(animatingTowards: nil))
   }
 }
+
+// MARK: - MagneticFieldMeta tests
+
+typealias MagneticFieldMeta = v0.MagneticFieldMeta
+
+struct MagneticFieldMetaTests {
+  /// CoreMove with magneticField roundtrips through JSON
+  @Test func coreMove_magneticField_roundTrip() throws {
+    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let coreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([1, 0, 0]),
+      magneticField: meta
+    )
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+    let data = try encoder.encode(coreMove)
+    let decoded = try decoder.decode(CoreMove.self, from: data)
+    #expect(decoded.magneticField == meta)
+    #expect(decoded.magneticField?.stackOffset == [0.01, 0, 0])
+  }
+
+  /// CoreMove without magneticField decodes magneticField as nil (backwards-compatible)
+  @Test func coreMove_noMagneticField_decodesNil() throws {
+    let coreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([1, 0, 0])
+    )
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+    let data = try encoder.encode(coreMove)
+    let decoded = try decoder.decode(CoreMove.self, from: data)
+    #expect(decoded.magneticField == nil)
+  }
+
+  /// EntityState with magneticField roundtrips through JSON
+  @Test func entityState_magneticField_roundTrip() throws {
+    let meta = MagneticFieldMeta(stackOffset: [0, 0, 0.02])
+    let state = EntityState(
+      eid: EID.other(name: "TestMagnet"),
+      position: [1, 0, 0],
+      magneticField: meta
+    )
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+    let data = try encoder.encode(state)
+    let decoded = try decoder.decode(EntityState.self, from: data)
+    #expect(decoded.magneticField == meta)
+  }
+
+  /// fillInEmptyParts populates magneticField from EntityState when nil
+  @Test func fillInEmptyParts_populatesMagneticFieldFromEntityState() {
+    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let initialState = EntityState(
+      eid: EID.other(name: "TestMagnet"),
+      position: [1, 0, 0],
+      magneticField: meta
+    )
+    var coreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([2, 0, 0])
+    )
+    #expect(coreMove.magneticField == nil)
+    coreMove.fillInEmptyParts(with: initialState)
+    #expect(coreMove.magneticField == meta)
+  }
+
+  /// removePropsNillIn clears magneticField when the reference CoreMove has it nil
+  @Test func removePropsNillIn_clearsMagneticField() {
+    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    var coreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([2, 0, 0]),
+      magneticField: meta
+    )
+    let referenceCoreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([2, 0, 0])
+    )
+    #expect(coreMove.magneticField != nil)
+    coreMove.removePropsNillIn(referenceCoreMove)
+    #expect(coreMove.magneticField == nil)
+  }
+
+  /// omit supports the magneticField CodingKeys case
+  @Test func omit_clearsMagneticField() {
+    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let coreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([2, 0, 0]),
+      magneticField: meta
+    )
+    let omitted = coreMove.omit(.magneticField)
+    #expect(omitted.magneticField == nil)
+    #expect(omitted.eid == coreMove.eid)
+  }
+
+  /// description includes magneticField when present
+  @Test func description_includesMagneticField() {
+    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let coreMove = CoreMove(
+      eid: EID.other(name: "TestMagnet"),
+      target: .position([2, 0, 0]),
+      magneticField: meta
+    )
+    #expect(coreMove.description.contains("magneticField"))
+  }
+}

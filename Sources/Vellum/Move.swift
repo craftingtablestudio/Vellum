@@ -85,6 +85,7 @@ extension v0.CoreMove {
     if scale == nil { self.scale = initialState.scale ?? [1, 1, 1] }
     if opacity == nil { self.opacity = initialState.opacity ?? 1.0 }
     if modelMeta == nil { self.modelMeta = initialState.modelMeta ?? nil }
+    if magneticField == nil { self.magneticField = initialState.magneticField ?? nil }
     if relativeTo == nil { self.relativeTo = initialState.relativeTo }
   }
 
@@ -96,6 +97,7 @@ extension v0.CoreMove {
     if otherCoreMove.scale == nil { self.scale = nil }
     if otherCoreMove.opacity == nil { self.opacity = nil }
     if otherCoreMove.modelMeta == nil { self.modelMeta = nil }
+    if otherCoreMove.magneticField == nil { self.magneticField = nil }
     if otherCoreMove.duration == nil { self.duration = nil }
     if otherCoreMove.sound == nil { self.sound = nil }
     if otherCoreMove.huggerIndex == nil { self.huggerIndex = nil }
@@ -113,6 +115,7 @@ extension v0.CoreMove {
     case .scale: m.scale = nil
     case .opacity: m.opacity = nil
     case .modelMeta: m.modelMeta = nil
+    case .magneticField: m.magneticField = nil
     case .duration: m.duration = nil
     case .sound: m.sound = nil
     case .huggerIndex: m.huggerIndex = nil
@@ -144,6 +147,7 @@ extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
     if let scale { arr.append("scale: \(scale)") }
     if let opacity { arr.append("opacity: \(opacity)") }
     if let modelMeta { arr.append("modelMeta: \(modelMeta)") }
+    if let magneticField { arr.append("magneticField: \(magneticField)") }
     if let duration { arr.append("duration: \(duration)") }
     if let sound { arr.append("sound: \(sound)") }
     if let huggerIndex { arr.append("huggerIndex: \(huggerIndex)") }

@@ -195,6 +195,43 @@ public enum v0 {
     }
   }
 
+  // MARK: - MagneticFieldMeta
+
+  /// Serialisable snapshot of a magnet's field configuration, used to record splay-direction
+  /// changes (encoded as `stackOffset`) in moves, sync them over SharePlay, persist them in
+  /// save data, and replay them during undo/redo.
+  ///
+  /// This is the Vellum-side (platform-agnostic) representation of the subset of
+  /// `MagneticFieldComponent` properties that can change at runtime via a `CoreMove`.
+  public struct MagneticFieldMeta: Codable, Sendable, Equatable {
+    /// An offset to apply to entities being stacked on this magnet.
+    /// Encodes splay direction: e.g. Left = positive X, Right = negative X, Up = positive Z.
+    public var stackOffset: SIMD3<Float>?
+
+    public init(stackOffset: SIMD3<Float>? = nil) {
+      self.stackOffset = stackOffset
+    }
+
+    // ╔═════════╗
+    // ║ CODABLE ║
+    // ╚═════════╝
+
+    private enum CodingKeys: String, CodingKey { case stackOffset }
+
+    public init(from decoder: Decoder) throws {
+      let container = try decoder.container(keyedBy: CodingKeys.self)
+      self.stackOffset = try SIMD3FloatCodable.decodeIfPresent(
+        from: container,
+        forKey: .stackOffset
+      )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+      var container = encoder.container(keyedBy: CodingKeys.self)
+      try SIMD3FloatCodable.encodeIfPresent(self.stackOffset, to: &container, forKey: .stackOffset)
+    }
+  }
+
   // MARK: - EntityState
 
   /// Represents the saved state of one entity in the scene.
@@ -209,6 +246,9 @@ public enum v0 {
     public var physicsMode: PhysicsBodyMode?
     public var magneticHugs: MagneticHugsComponent?
     public var modelMeta: ModelMetaComponent?
+    /// Snapshot of the entity's magnetic field configuration (e.g. stackOffset for splay direction).
+    /// nil means no override — the entity keeps its authored MagneticFieldComponent as-is.
+    public var magneticField: MagneticFieldMeta?
     /// nil represents no opacity override (i.e. fully opaque / 1.0).
     public var opacity: Float?
     /// The coordinate space for position/orientation values.
@@ -224,6 +264,7 @@ public enum v0 {
       physicsMode: PhysicsBodyMode? = nil,
       magneticHugs: MagneticHugsComponent? = nil,
       modelMeta: ModelMetaComponent? = nil,
+      magneticField: MagneticFieldMeta? = nil,
       opacity: Float? = nil,
       relativeTo: EID? = nil
     ) {
@@ -234,6 +275,7 @@ public enum v0 {
       self.physicsMode = physicsMode
       self.magneticHugs = magneticHugs
       self.modelMeta = modelMeta
+      self.magneticField = magneticField
       self.opacity = opacity
       self.relativeTo = relativeTo
     }
@@ -243,8 +285,8 @@ public enum v0 {
     // ╚═════════╝
 
     enum CodingKeys: String, CodingKey {
-      case eid, position, orientation, scale, physicsMode, magneticHugs, modelMeta, opacity,
-        relativeTo
+      case eid, position, orientation, scale, physicsMode, magneticHugs, modelMeta, magneticField,
+        opacity, relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -262,6 +304,10 @@ public enum v0 {
         forKey: .magneticHugs
       )
       self.modelMeta = try container.decodeIfPresent(ModelMetaComponent.self, forKey: .modelMeta)
+      self.magneticField = try container.decodeIfPresent(
+        MagneticFieldMeta.self,
+        forKey: .magneticField
+      )
       self.opacity = try container.decodeIfPresent(Float.self, forKey: .opacity)
       self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
     }
@@ -279,6 +325,7 @@ public enum v0 {
       try container.encodeIfPresent(self.physicsMode, forKey: .physicsMode)
       try container.encodeIfPresent(self.magneticHugs, forKey: .magneticHugs)
       try container.encodeIfPresent(self.modelMeta, forKey: .modelMeta)
+      try container.encodeIfPresent(self.magneticField, forKey: .magneticField)
       try container.encodeIfPresent(self.opacity, forKey: .opacity)
       try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
     }
@@ -306,6 +353,9 @@ public enum v0 {
     /// Opacity override; nil means fully opaque (1.0).
     public var opacity: Float?
     public var modelMeta: ModelMetaComponent?
+    /// Snapshot of the target entity's magnetic field configuration to apply (e.g. stackOffset
+    /// for splay direction changes). nil means no change to the entity's MagneticFieldComponent.
+    public var magneticField: MagneticFieldMeta?
     /// When nil, defaults to the initiating action's animation duration.
     public var duration: Duration?
     /// Custom sounds; when nil, only preset USD sounds are played.
@@ -324,6 +374,7 @@ public enum v0 {
       scale: SIMD3<Float>? = nil,
       opacity: Float? = nil,
       modelMeta: ModelMetaComponent? = nil,
+      magneticField: MagneticFieldMeta? = nil,
       duration: Duration? = nil,
       sound: SoundGroup? = nil,
       relativeTo: EID? = nil
@@ -333,6 +384,7 @@ public enum v0 {
       self.scale = scale
       self.opacity = opacity
       self.modelMeta = modelMeta
+      self.magneticField = magneticField
       self.duration = duration
       self.sound = sound
       self.relativeTo = relativeTo
@@ -357,8 +409,8 @@ public enum v0 {
     // ╚═════════╝
 
     public enum CodingKeys: String, CodingKey {
-      case eid, magnet, position, orientation, scale, opacity, modelMeta, duration, sound,
-        huggerIndex, relativeTo
+      case eid, magnet, position, orientation, scale, opacity, modelMeta, magneticField, duration,
+        sound, huggerIndex, relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -373,6 +425,10 @@ public enum v0 {
       self.scale = try SIMD3FloatCodable.decodeIfPresent(from: container, forKey: .scale)
       self.opacity = try container.decodeIfPresent(Float.self, forKey: .opacity)
       self.modelMeta = try container.decodeIfPresent(ModelMetaComponent.self, forKey: .modelMeta)
+      self.magneticField = try container.decodeIfPresent(
+        MagneticFieldMeta.self,
+        forKey: .magneticField
+      )
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
       self.huggerIndex = try container.decodeIfPresent(Int.self, forKey: .huggerIndex)
@@ -392,6 +448,7 @@ public enum v0 {
       try SIMD3FloatCodable.encodeIfPresent(self.scale, to: &container, forKey: .scale)
       try container.encodeIfPresent(self.opacity, forKey: .opacity)
       try container.encodeIfPresent(self.modelMeta, forKey: .modelMeta)
+      try container.encodeIfPresent(self.magneticField, forKey: .magneticField)
       try container.encodeIfPresent(self.duration, forKey: .duration)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggerIndex, forKey: .huggerIndex)
