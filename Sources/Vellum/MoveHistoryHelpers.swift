@@ -66,6 +66,11 @@ public enum MoveHistoryHelpers {
       if found.position == nil && found.magnet == nil {
         if let hugs = preset.magneticHugs, let magnet = hugs.hugging {
           found.magnet = magnet
+          // Magnet moves are resolved in root-space by the animation pipeline — the stacking
+          // position is computed from the magnet's root-space position, not from a stored coordinate.
+          // Explicitly nil so the relativeTo from the preset (which may be .parent for entities
+          // that were nested before reparenting) doesn't leak into the returned CoreMove.
+          found.relativeTo = nil
         } else {
           found.position = preset.position
           // Keep position and relativeTo paired — the preset position is in whatever
