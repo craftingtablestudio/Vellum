@@ -24,6 +24,7 @@ public enum MoveHistoryHelpers {
       var scale: SIMD3<Float>? = nil
       var opacity: Float? = nil
       var modelMeta: v0.ModelMetaComponent? = nil
+      var magneticField: v0.MagneticFieldMeta? = nil
       var huggerIndex: Int? = nil
       /// Tracks the coordinate space of the found position/orientation. Set from the same
       /// CoreMove that provided the position (or magnet), so the values and their space stay paired.
@@ -42,6 +43,7 @@ public enum MoveHistoryHelpers {
         if self.scale == nil { self.scale = coreMove.scale }
         if self.opacity == nil { self.opacity = coreMove.opacity }
         if self.modelMeta == nil { self.modelMeta = coreMove.modelMeta }
+        if self.magneticField == nil { self.magneticField = coreMove.magneticField }
         if self.huggerIndex == nil { self.huggerIndex = coreMove.huggerIndex }
       }
 
@@ -82,6 +84,7 @@ public enum MoveHistoryHelpers {
       if found.scale == nil { found.scale = preset.scale }
       if found.opacity == nil { found.opacity = preset.opacity }
       if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
+      if found.magneticField == nil { found.magneticField = preset.magneticField }
     }
 
     let target: v0.CoreMoveTarget =
@@ -98,6 +101,7 @@ public enum MoveHistoryHelpers {
       scale: found.scale,
       opacity: found.opacity,
       modelMeta: found.modelMeta,
+      magneticField: found.magneticField,
       relativeTo: found.relativeTo
     )
   }
@@ -159,8 +163,8 @@ public enum MoveHistoryHelpers {
     guard let rhs else { return false }
     let allOk =
       lhs.position == rhs.position && lhs.magnet == rhs.magnet && lhs.eid == rhs.eid
-      && lhs.modelMeta == rhs.modelMeta && lhs.opacity == rhs.opacity && lhs.scale == rhs.scale
-      && lhs.huggerIndex == rhs.huggerIndex
+      && lhs.modelMeta == rhs.modelMeta && lhs.magneticField == rhs.magneticField
+      && lhs.opacity == rhs.opacity && lhs.scale == rhs.scale && lhs.huggerIndex == rhs.huggerIndex
     if !allOk { return false }
     if let o1 = lhs.orientation, let o2 = rhs.orientation {
       return o1.facingSameDirection(as: o2, axis: .y)
