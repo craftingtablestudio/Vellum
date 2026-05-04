@@ -195,40 +195,94 @@ public enum v0 {
     }
   }
 
+  // MARK: - HugEffect
+
+  /// Determines the physics applied after an entity starts sticking to a magnet.
+  public enum HugEffect: String, Codable, CaseIterable, Sendable {
+    case none
+    case tower
+    case fan
+    case pile
+    case destroy
+  }
+
   // MARK: - MagneticFieldMeta
 
-  /// Serialisable snapshot of a magnet's field configuration, used to record splay-direction
-  /// changes (encoded as `stackOffset`) in moves, sync them over SharePlay, persist them in
-  /// save data, and replay them during undo/redo.
+  /// Serialisable snapshot of a magnet's field configuration, used to record field
+  /// changes in moves, sync them over SharePlay, persist them in save data, and
+  /// replay them during undo/redo.
   ///
-  /// This is the Vellum-side (platform-agnostic) representation of the subset of
-  /// `MagneticFieldComponent` properties that can change at runtime via a `CoreMove`.
+  /// Platform-agnostic representation of `MagneticFieldComponent` properties that
+  /// can change at runtime via a `CoreMove`. All fields are optional — `nil` means
+  /// no override (the entity keeps its current value for that field).
   public struct MagneticFieldMeta: Codable, Sendable, Equatable {
+    public var hugEffect: HugEffect?
+    public var fieldRadius: Float?
     /// An offset to apply to entities being stacked on this magnet.
-    /// Encodes splay direction: e.g. Left = positive X, Right = negative X, Up = positive Z.
     public var stackOffset: SIMD3<Float>?
+    public var collisionSound: SoundGroup?
+    public var entityLimit: Int?
+    public var forwardTo: String?
+    public var overflowTo: String?
+    public var yAlignmentTolerance: Float?
 
-    public init(stackOffset: SIMD3<Float>? = nil) {
+    public init(
+      hugEffect: HugEffect? = nil,
+      fieldRadius: Float? = nil,
+      stackOffset: SIMD3<Float>? = nil,
+      collisionSound: SoundGroup? = nil,
+      entityLimit: Int? = nil,
+      forwardTo: String? = nil,
+      overflowTo: String? = nil,
+      yAlignmentTolerance: Float? = nil
+    ) {
+      self.hugEffect = hugEffect
+      self.fieldRadius = fieldRadius
       self.stackOffset = stackOffset
+      self.collisionSound = collisionSound
+      self.entityLimit = entityLimit
+      self.forwardTo = forwardTo
+      self.overflowTo = overflowTo
+      self.yAlignmentTolerance = yAlignmentTolerance
     }
 
     // ╔═════════╗
     // ║ CODABLE ║
     // ╚═════════╝
 
-    private enum CodingKeys: String, CodingKey { case stackOffset }
+    private enum CodingKeys: String, CodingKey {
+      case hugEffect, fieldRadius, stackOffset, collisionSound, entityLimit, forwardTo, overflowTo
+      case yAlignmentTolerance
+    }
 
     public init(from decoder: Decoder) throws {
       let container = try decoder.container(keyedBy: CodingKeys.self)
+      self.hugEffect = try container.decodeIfPresent(HugEffect.self, forKey: .hugEffect)
+      self.fieldRadius = try container.decodeIfPresent(Float.self, forKey: .fieldRadius)
       self.stackOffset = try SIMD3FloatCodable.decodeIfPresent(
         from: container,
         forKey: .stackOffset
+      )
+      self.collisionSound = try container.decodeIfPresent(SoundGroup.self, forKey: .collisionSound)
+      self.entityLimit = try container.decodeIfPresent(Int.self, forKey: .entityLimit)
+      self.forwardTo = try container.decodeIfPresent(String.self, forKey: .forwardTo)
+      self.overflowTo = try container.decodeIfPresent(String.self, forKey: .overflowTo)
+      self.yAlignmentTolerance = try container.decodeIfPresent(
+        Float.self,
+        forKey: .yAlignmentTolerance
       )
     }
 
     public func encode(to encoder: Encoder) throws {
       var container = encoder.container(keyedBy: CodingKeys.self)
+      try container.encodeIfPresent(self.hugEffect, forKey: .hugEffect)
+      try container.encodeIfPresent(self.fieldRadius, forKey: .fieldRadius)
       try SIMD3FloatCodable.encodeIfPresent(self.stackOffset, to: &container, forKey: .stackOffset)
+      try container.encodeIfPresent(self.collisionSound, forKey: .collisionSound)
+      try container.encodeIfPresent(self.entityLimit, forKey: .entityLimit)
+      try container.encodeIfPresent(self.forwardTo, forKey: .forwardTo)
+      try container.encodeIfPresent(self.overflowTo, forKey: .overflowTo)
+      try container.encodeIfPresent(self.yAlignmentTolerance, forKey: .yAlignmentTolerance)
     }
   }
 
