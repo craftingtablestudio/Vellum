@@ -49,10 +49,16 @@ extension v0.Move {
     var eidsCovered: Set<v0.EID> = Set()
     for chunk in chunks {
       for coreMove in chunk {
-        if eidsCovered.contains(coreMove.eid) {
-          errors.append("Found duplicate EID in side effect DURING: \(coreMove.eid)")
-        } else if coreMove.eid != v0.EID.none {
-          eidsCovered.insert(coreMove.eid)
+        // Snapshot CoreMoves (huggers only, no position/magnet) use the magnet's EID as a
+        // metadata key — they don't represent entity movement and are allowed to share an EID
+        // with the entity's own CoreMove in the same chunk.
+        let isSnapshot = coreMove.huggers != nil && coreMove.position == nil && coreMove.magnet == nil
+        if !isSnapshot {
+          if eidsCovered.contains(coreMove.eid) {
+            errors.append("Found duplicate EID in side effect DURING: \(coreMove.eid)")
+          } else if coreMove.eid != v0.EID.none {
+            eidsCovered.insert(coreMove.eid)
+          }
         }
         errors.append(contentsOf: coreMove.validate())
       }
@@ -100,7 +106,7 @@ extension v0.CoreMove {
     if otherCoreMove.magneticField == nil { self.magneticField = nil }
     if otherCoreMove.duration == nil { self.duration = nil }
     if otherCoreMove.sound == nil { self.sound = nil }
-    if otherCoreMove.huggerIndex == nil { self.huggerIndex = nil }
+    if otherCoreMove.huggers == nil { self.huggers = nil }
     if otherCoreMove.relativeTo == nil { self.relativeTo = nil }
   }
 
@@ -118,7 +124,7 @@ extension v0.CoreMove {
     case .magneticField: m.magneticField = nil
     case .duration: m.duration = nil
     case .sound: m.sound = nil
-    case .huggerIndex: m.huggerIndex = nil
+    case .huggers: m.huggers = nil
     case .relativeTo: m.relativeTo = nil
     }
     return m
@@ -150,7 +156,7 @@ extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
     if let magneticField { arr.append("magneticField: \(magneticField)") }
     if let duration { arr.append("duration: \(duration)") }
     if let sound { arr.append("sound: \(sound)") }
-    if let huggerIndex { arr.append("huggerIndex: \(huggerIndex)") }
+    if let huggers { arr.append("huggers: \(huggers)") }
     if let relativeTo { arr.append("relativeTo: \(relativeTo)") }
     return arr.join(", ") + ")"
   }

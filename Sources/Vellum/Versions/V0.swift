@@ -391,7 +391,7 @@ public enum v0 {
   /// `unset` represents a CoreMove being built and is not valid to insert or animate.
   public enum CoreMoveTarget: Equatable, Sendable {
     case position(SIMD3<Float>)
-    case magnet(EID, _ huggerIndex: Int? = nil)
+    case magnet(EID)
     case unset
   }
 
@@ -414,8 +414,10 @@ public enum v0 {
     public var duration: Duration?
     /// Custom sounds; when nil, only preset USD sounds are played.
     public var sound: SoundGroup?
-    /// Index used when adding at a specific hugger slot.
-    public var huggerIndex: Int?
+    /// Snapshot of the desired `huggedBy` ordering for the magnet identified by `eid`.
+    /// When present, the pipeline expands this into individual per-hugger CoreMoves
+    /// (each targeting the magnet with a `huggerIndex` derived from their array position).
+    public var huggers: [EID]?
     /// The coordinate space for position/orientation values.
     /// - `nil` (default): root-space — positions and orientations are relative to rootEntity.
     /// - `.parent`: parent-local space — values are relative to the entity's parent in the hierarchy.
@@ -431,6 +433,7 @@ public enum v0 {
       magneticField: MagneticFieldMeta? = nil,
       duration: Duration? = nil,
       sound: SoundGroup? = nil,
+      huggers: [EID]? = nil,
       relativeTo: EID? = nil
     ) {
       self.eid = eid
@@ -441,20 +444,18 @@ public enum v0 {
       self.magneticField = magneticField
       self.duration = duration
       self.sound = sound
+      self.huggers = huggers
       self.relativeTo = relativeTo
       switch target {
       case .position(let position):
         self.position = position
         self.magnet = nil
-        self.huggerIndex = nil
-      case .magnet(let magnet, let huggerIndex):
+      case .magnet(let magnet):
         self.magnet = magnet
-        self.huggerIndex = huggerIndex
         self.position = nil
       case .unset:
         self.position = nil
         self.magnet = nil
-        self.huggerIndex = nil
       }
     }
 
@@ -464,7 +465,7 @@ public enum v0 {
 
     public enum CodingKeys: String, CodingKey {
       case eid, magnet, position, orientation, scale, opacity, modelMeta, magneticField, duration,
-        sound, huggerIndex, relativeTo
+        sound, huggers, relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -485,7 +486,7 @@ public enum v0 {
       )
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
-      self.huggerIndex = try container.decodeIfPresent(Int.self, forKey: .huggerIndex)
+      self.huggers = try container.decodeIfPresent([EID].self, forKey: .huggers)
       self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
     }
 
@@ -505,7 +506,7 @@ public enum v0 {
       try container.encodeIfPresent(self.magneticField, forKey: .magneticField)
       try container.encodeIfPresent(self.duration, forKey: .duration)
       try container.encodeIfPresent(self.sound, forKey: .sound)
-      try container.encodeIfPresent(self.huggerIndex, forKey: .huggerIndex)
+      try container.encodeIfPresent(self.huggers, forKey: .huggers)
       try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
     }
   }

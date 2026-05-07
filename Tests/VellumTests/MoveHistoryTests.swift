@@ -60,6 +60,68 @@ struct AppendMoveTests {
     let result = try history.appendMove(moveD, initialStateDic: [:], atIndex: nil, setMoveNr: true)
     #expect(result?.backupForDivergence != nil)
   }
+
+  /// When a move targets the same magnet but with a different huggers snapshot (reordering),
+  /// it must NOT be deduplicated — the huggers ordering changed.
+  @Test func appendMove_sameMagnetDifferentHuggersOrder_isNotDeduplicated() throws {
+    let E1 = EID.other(name: "E1")
+    let WK = EID.other(name: "WK")
+    let WQ = EID.other(name: "WQ")
+
+    // Move 1: WK joins E1, snapshot says E1.huggedBy = [WK]
+    let move1 = Move([[
+      CoreMove(eid: WK, target: .magnet(E1)),
+      CoreMove(eid: E1, huggers: [WK]),
+    ]])
+    // Move 2: WQ joins E1 on top, snapshot says E1.huggedBy = [WK, WQ]
+    let move2 = Move([[
+      CoreMove(eid: WQ, target: .magnet(E1)),
+      CoreMove(eid: E1, huggers: [WK, WQ]),
+    ]])
+    // Move 3: WK moves to E1 again (same magnet), but now on top — snapshot says E1.huggedBy = [WQ, WK]
+    let move3 = Move([[
+      CoreMove(eid: WK, target: .magnet(E1)),
+      CoreMove(eid: E1, huggers: [WQ, WK]),
+    ]])
+
+    var history = MoveHistory()
+    _ = try history.appendMove(move1, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+    _ = try history.appendMove(move2, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+    let result = try history.appendMove(move3, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+
+    #expect(history.moves.count == 3, "Move with different huggers order should not be deduplicated")
+    #expect(result != nil, "appendMove should return a result for a reorder move")
+  }
+
+  /// A huggers-only snapshot CoreMove (no position/magnet) that matches the previous snapshot
+  /// SHOULD be deduplicated — nothing changed.
+  @Test func appendMove_sameHuggersOrder_isDeduplicated() throws {
+    let E1 = EID.other(name: "E1")
+    let WK = EID.other(name: "WK")
+    let WQ = EID.other(name: "WQ")
+
+    let move1 = Move([[
+      CoreMove(eid: WK, target: .magnet(E1)),
+      CoreMove(eid: E1, huggers: [WK]),
+    ]])
+    let move2 = Move([[
+      CoreMove(eid: WQ, target: .magnet(E1)),
+      CoreMove(eid: E1, huggers: [WK, WQ]),
+    ]])
+    // Move 3: WQ to E1 again with SAME huggers order — should be deduplicated
+    let move3 = Move([[
+      CoreMove(eid: WQ, target: .magnet(E1)),
+      CoreMove(eid: E1, huggers: [WK, WQ]),
+    ]])
+
+    var history = MoveHistory()
+    _ = try history.appendMove(move1, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+    _ = try history.appendMove(move2, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+    let result = try history.appendMove(move3, initialStateDic: [:], atIndex: nil, setMoveNr: true)
+
+    #expect(history.moves.count == 2, "Move with same huggers order should be deduplicated")
+    #expect(result == nil, "appendMove should return nil for a duplicate move")
+  }
 }
 
 // MARK: - RestoreHistoryTests

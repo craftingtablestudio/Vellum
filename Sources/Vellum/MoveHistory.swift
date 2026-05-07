@@ -185,12 +185,15 @@ extension v0.MoveHistory {
     guard let chunkToCheck = moveToAppend.chunks.at(0) else { return .matchesCurrentState }
 
     let moveSameAsLast = chunkToCheck.allSatisfy { coreMove in
-      MoveHistoryHelpers.coreMoveUnchanged(
+      let unchanged = MoveHistoryHelpers.coreMoveUnchanged(
         coreMove: coreMove,
         movesToCompareWith: playedMoves,
         initialStateDic: initialStateDic
       )
+      if DEBUGGING_VELLUM { print("[compareMove] \(coreMove.eid) unchanged:", unchanged) }
+      return unchanged
     }
+    if DEBUGGING_VELLUM { print("[compareMove] moveSameAsLast:", moveSameAsLast, "chunks:", moveToAppend.chunks.count) }
     return moveSameAsLast ? .matchesCurrentState : .isNew
   }
 
