@@ -85,17 +85,15 @@ public enum MoveHistoryHelpers {
       }
       if found.orientation == nil { found.orientation = preset.orientation }
       if found.scale == nil { found.scale = preset.scale }
-      if found.opacity == nil { found.opacity = preset.opacity }
+      if found.opacity == nil { found.opacity = preset.opacity ?? 1.0 }
       if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
       if found.magneticField == nil { found.magneticField = preset.magneticField }
     }
 
     let target: v0.CoreMoveTarget =
-      if let magnet = found.magnet {
-        .magnet(magnet)
-      } else if let position = found.position { .position(position) } else if targetEid.isClone {
-        .magnet(.originalCloner)
-      } else { .unset }
+      if let magnet = found.magnet { .magnet(magnet) } else if let position = found.position {
+        .position(position)
+      } else if targetEid.isClone { .magnet(.originalCloner) } else { .unset }
 
     return v0.CoreMove(
       eid: targetEid,
@@ -131,7 +129,9 @@ public enum MoveHistoryHelpers {
         // Pure snapshot CoreMoves (huggers ordering, no position/magnet) are metadata about
         // a magnet's huggedBy ordering. They are not entity movements and should not be undone
         // as such — the correct huggers snapshot is derived from the PREVIOUS state in history.
-        if coreMoveToUndo.huggers != nil && coreMoveToUndo.magnet == nil && coreMoveToUndo.position == nil {
+        if coreMoveToUndo.huggers != nil && coreMoveToUndo.magnet == nil
+          && coreMoveToUndo.position == nil
+        {
           // Find this magnet's previous huggers snapshot from history
           let previousSnapshot = Self.findPreviousCoreMove(
             search: coreMoveToUndo.eid,
@@ -186,8 +186,7 @@ public enum MoveHistoryHelpers {
     let allOk =
       lhs.position == rhs.position && lhs.magnet == rhs.magnet && lhs.eid == rhs.eid
       && lhs.modelMeta == rhs.modelMeta && lhs.magneticField == rhs.magneticField
-      && lhs.opacity == rhs.opacity && lhs.scale == rhs.scale
-      && lhs.huggers == rhs.huggers
+      && lhs.opacity == rhs.opacity && lhs.scale == rhs.scale && lhs.huggers == rhs.huggers
     if !allOk { return false }
     if let o1 = lhs.orientation, let o2 = rhs.orientation {
       return o1.facingSameDirection(as: o2, axis: .y)

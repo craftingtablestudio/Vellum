@@ -14,7 +14,8 @@ extension v0.Move {
   }
 
   public var firstEid: v0.EID {
-    return chunks.compactMap { $0.first(where: { $0.eid != v0.EID.none }) }.first?.eid ?? v0.EID.none
+    return chunks.compactMap { $0.first(where: { $0.eid != v0.EID.none }) }.first?.eid
+      ?? v0.EID.none
   }
 
   /// Returns a copy of this move with additional side-effect CoreMoves added.
@@ -52,7 +53,8 @@ extension v0.Move {
         // Snapshot CoreMoves (huggers only, no position/magnet) use the magnet's EID as a
         // metadata key — they don't represent entity movement and are allowed to share an EID
         // with the entity's own CoreMove in the same chunk.
-        let isSnapshot = coreMove.huggers != nil && coreMove.position == nil && coreMove.magnet == nil
+        let isSnapshot =
+          coreMove.huggers != nil && coreMove.position == nil && coreMove.magnet == nil
         if !isSnapshot {
           if eidsCovered.contains(coreMove.eid) {
             errors.append("Found duplicate EID in side effect DURING: \(coreMove.eid)")
@@ -92,6 +94,7 @@ extension v0.CoreMove {
     if opacity == nil { self.opacity = initialState.opacity ?? 1.0 }
     if modelMeta == nil { self.modelMeta = initialState.modelMeta ?? nil }
     if magneticField == nil { self.magneticField = initialState.magneticField ?? nil }
+    if huggers == nil { self.huggers = initialState.magneticHugs?.huggedBy }
     if relativeTo == nil { self.relativeTo = initialState.relativeTo }
   }
 

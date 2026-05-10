@@ -1,4 +1,7 @@
 import Foundation
+#if os(macOS) || os(iOS) || os(watchOS) || os(tvOS) || os(visionOS)
+  import simd
+#endif
 import Testing
 @testable import Vellum
 
@@ -69,28 +72,59 @@ struct AppendMoveTests {
     let WQ = EID.other(name: "WQ")
 
     // Move 1: WK joins E1, snapshot says E1.huggedBy = [WK]
-    let move1 = Move([[
-      CoreMove(eid: WK, target: .magnet(E1)),
-      CoreMove(eid: E1, huggers: [WK]),
-    ]])
+    let move1 = Move([[CoreMove(eid: WK, target: .magnet(E1)), CoreMove(eid: E1, huggers: [WK])]])
     // Move 2: WQ joins E1 on top, snapshot says E1.huggedBy = [WK, WQ]
-    let move2 = Move([[
-      CoreMove(eid: WQ, target: .magnet(E1)),
-      CoreMove(eid: E1, huggers: [WK, WQ]),
-    ]])
+    let move2 = Move([
+      [CoreMove(eid: WQ, target: .magnet(E1)), CoreMove(eid: E1, huggers: [WK, WQ])]
+    ])
     // Move 3: WK moves to E1 again (same magnet), but now on top — snapshot says E1.huggedBy = [WQ, WK]
-    let move3 = Move([[
-      CoreMove(eid: WK, target: .magnet(E1)),
-      CoreMove(eid: E1, huggers: [WQ, WK]),
-    ]])
+    let move3 = Move([
+      [CoreMove(eid: WK, target: .magnet(E1)), CoreMove(eid: E1, huggers: [WQ, WK])]
+    ])
 
     var history = MoveHistory()
     _ = try history.appendMove(move1, initialStateDic: [:], atIndex: nil, setMoveNr: true)
     _ = try history.appendMove(move2, initialStateDic: [:], atIndex: nil, setMoveNr: true)
     let result = try history.appendMove(move3, initialStateDic: [:], atIndex: nil, setMoveNr: true)
 
-    #expect(history.moves.count == 3, "Move with different huggers order should not be deduplicated")
+    #expect(
+      history.moves.count == 3,
+      "Move with different huggers order should not be deduplicated"
+    )
     #expect(result != nil, "appendMove should return a result for a reorder move")
+  }
+
+  /// Placing a piece back on its starting magnet with a different Y rotation and the same
+  /// huggers snapshot should be deduplicated — nothing meaningful changed. The initial state
+  /// already records the magnet's huggedBy, so the huggers snapshot in the move matches.
+  /// Regression: fillInEmptyParts didn't fill huggers from initialState, so the comparison
+  /// saw nil vs [WK] and treated it as a new move.
+  @Test func appendMove_sameMagnetSameHuggers_withInitialState_isDeduplicated() throws {
+    let E1 = EID.other(name: "E1")
+    let WK = EID.other(name: "WK")
+    let YAW = simd_quatf(angle: 0.5, axis: [0, 1, 0])
+
+    // WK starts on E1 — initial state records the hug relationship from both sides
+    let initialStateDic: [EID: EntityState] = [
+      WK: EntityState(eid: WK, magneticHugs: MagneticHugsComponent(hugging: E1, huggedBy: [])),
+      E1: EntityState(eid: E1, magneticHugs: MagneticHugsComponent(hugging: nil, huggedBy: [WK])),
+    ]
+
+    // Piece dropped back on same magnet with a Y rotation + huggers snapshot
+    let move = Move([
+      [CoreMove(eid: WK, target: .magnet(E1), orientation: YAW), CoreMove(eid: E1, huggers: [WK])]
+    ])
+
+    var history = MoveHistory()
+    let result = try history.appendMove(
+      move,
+      initialStateDic: initialStateDic,
+      atIndex: nil,
+      setMoveNr: true
+    )
+
+    #expect(result == nil, "Same magnet + same huggers + Y rotation only should be deduplicated")
+    #expect(history.moves.count == 0)
   }
 
   /// A huggers-only snapshot CoreMove (no position/magnet) that matches the previous snapshot
@@ -100,19 +134,14 @@ struct AppendMoveTests {
     let WK = EID.other(name: "WK")
     let WQ = EID.other(name: "WQ")
 
-    let move1 = Move([[
-      CoreMove(eid: WK, target: .magnet(E1)),
-      CoreMove(eid: E1, huggers: [WK]),
-    ]])
-    let move2 = Move([[
-      CoreMove(eid: WQ, target: .magnet(E1)),
-      CoreMove(eid: E1, huggers: [WK, WQ]),
-    ]])
+    let move1 = Move([[CoreMove(eid: WK, target: .magnet(E1)), CoreMove(eid: E1, huggers: [WK])]])
+    let move2 = Move([
+      [CoreMove(eid: WQ, target: .magnet(E1)), CoreMove(eid: E1, huggers: [WK, WQ])]
+    ])
     // Move 3: WQ to E1 again with SAME huggers order — should be deduplicated
-    let move3 = Move([[
-      CoreMove(eid: WQ, target: .magnet(E1)),
-      CoreMove(eid: E1, huggers: [WK, WQ]),
-    ]])
+    let move3 = Move([
+      [CoreMove(eid: WQ, target: .magnet(E1)), CoreMove(eid: E1, huggers: [WK, WQ])]
+    ])
 
     var history = MoveHistory()
     _ = try history.appendMove(move1, initialStateDic: [:], atIndex: nil, setMoveNr: true)
