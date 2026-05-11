@@ -52,7 +52,8 @@ enum mock {
     target: MockTarget = MockTarget.unset,
     orientation: simd_quatf? = nil,
     opacity: Float? = nil,
-    duration: Duration? = nil
+    duration: Duration? = nil,
+    huggers: [EID]? = nil
   ) -> CoreMove {
     let target =
       switch target {
@@ -67,7 +68,8 @@ enum mock {
       target: target,
       orientation: orientation,
       opacity: opacity,
-      duration: duration
+      duration: duration,
+      huggers: huggers
     )
   }
 

@@ -98,6 +98,23 @@ extension v0.CoreMove {
     if relativeTo == nil { self.relativeTo = initialState.relativeTo }
   }
 
+  /// Returns a copy with non-nil fields from `other` applied on top of self.
+  public func merging(_ other: v0.CoreMove) -> v0.CoreMove {
+    var result = self
+    if other.position != nil { result.position = other.position }
+    if other.magnet != nil { result.magnet = other.magnet }
+    if other.orientation != nil { result.orientation = other.orientation }
+    if other.scale != nil { result.scale = other.scale }
+    if other.opacity != nil { result.opacity = other.opacity }
+    if other.modelMeta != nil { result.modelMeta = other.modelMeta }
+    if other.magneticField != nil { result.magneticField = other.magneticField }
+    if other.duration != nil { result.duration = other.duration }
+    if other.sound != nil { result.sound = other.sound }
+    if other.huggers != nil { result.huggers = other.huggers }
+    if other.relativeTo != nil { result.relativeTo = other.relativeTo }
+    return result
+  }
+
   /// Nils out any property that is nil in the given reference CoreMove.
   public mutating func removePropsNillIn(_ otherCoreMove: v0.CoreMove) {
     if otherCoreMove.magnet == nil { self.magnet = nil }

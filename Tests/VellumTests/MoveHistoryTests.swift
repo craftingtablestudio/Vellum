@@ -321,8 +321,8 @@ struct MoveToPreviousCoreMovesTests {
       reverseMoves == [
         Move([
           [
-            mock.coreMove(eid: "WR1", target: .magnet("A1")),
-            mock.coreMove(eid: "BP1", target: .magnet("A7")),
+            mock.coreMove(eid: "WR1", target: .magnet("A1"), huggers: []),
+            mock.coreMove(eid: "BP1", target: .magnet("A7"), huggers: []),
           ]
         ])
       ]
@@ -357,7 +357,7 @@ struct MoveToPreviousCoreMovesTests {
       default: []
       }
 
-    #expect(reverseMoves == [Move([[mock.coreMove(eid: "BP1", target: .magnet("A2"))]])])
+    #expect(reverseMoves == [Move([[mock.coreMove(eid: "BP1", target: .magnet("A2"), huggers: [])]])])
   }
 
   /// Complex: undoing a subsequent move of a captured piece reverts it to the position it was moved to on capture
@@ -387,7 +387,9 @@ struct MoveToPreviousCoreMovesTests {
       default: []
       }
 
-    #expect(reverseMoves == [Move([[mock.coreMove(eid: "WR1", target: .position(ROOK_POSITION))]])])
+    #expect(
+      reverseMoves == [Move([[mock.coreMove(eid: "WR1", target: .position(ROOK_POSITION), huggers: [])]])]
+    )
   }
 
   /// Complex: undoing a corner Go capture — white stone clones return to their board positions;
@@ -532,8 +534,8 @@ struct MoveToPreviousCoreMovesTests {
         Move([
           [
             mock.coreMove(eid: "WP1", target: .magnet("A7")),
-            mock.coreMove(eid: "BP1", target: .magnet("A7")),
-          ], [mock.coreMove(eid: "WP1", target: .magnet("A2"))],
+            mock.coreMove(eid: "BP1", target: .magnet("A7"), huggers: []),
+          ], [mock.coreMove(eid: "WP1", target: .magnet("A2"), huggers: [])],
         ])
       ]
     )
@@ -591,9 +593,9 @@ struct MoveToPreviousCoreMovesTests {
       reverseMoves == [
         Move([
           [
-            mock.coreMove(eid: "Card:UUIDC", target: .magnet("Card:UUID1")),
-            mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID1")),
-            mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID1")),
+            mock.coreMove(eid: "Card:UUIDC", target: .magnet("Card:UUID1"), huggers: []),
+            mock.coreMove(eid: "Card:UUIDB", target: .magnet("Card:UUID1"), huggers: []),
+            mock.coreMove(eid: "Card:UUIDA", target: .magnet("Card:UUID1"), huggers: []),
             mock.coreMove(eid: "Card:UUID1", target: .position(INITIAL_POSITION)),
           ]
         ])
@@ -910,6 +912,55 @@ struct MoveToPreviousCoreMovesTests {
           ]
         ])
       ]
+    )
+  }
+
+  /// Undoing a move that changed a magnet's stackOffset must revert the magneticField,
+  /// even when the magneticField CoreMove was merged with a huggers snapshot (e.g. by
+  /// `withSideEffects`). The huggers-only undo path must carry the previous magneticField
+  /// through, not drop it.
+  @Test func undo_magneticFieldStackOffset_revertsWhenMergedWithHuggers() {
+    let M = EID.other(name: "M")
+    let Card = EID.other(name: "Card")
+    let INITIAL_FIELD = MagneticFieldMeta(stackOffset: [0, 0, 0])
+    let CHANGED_FIELD = MagneticFieldMeta(stackOffset: [0, 0, -0.026])
+
+    let presetDic: [EID: EntityState] = [
+      M: EntityState(eid: M, position: [0, 0, 0], magneticField: INITIAL_FIELD),
+      Card: EntityState(
+        eid: Card,
+        magneticHugs: MagneticHugsComponent(hugging: M, huggedBy: [])
+      ),
+    ]
+
+    // Simulates what withSideEffects produces when a huggers snapshot and a magneticField
+    // side effect share the same EID — they get merged into one CoreMove.
+    let history = MoveHistory(moves: [
+      Move([
+        [
+          mock.coreMove(eid: "Card", target: .magnet("M")),
+          CoreMove(eid: M, magneticField: CHANGED_FIELD, huggers: [Card]),
+        ]
+      ])
+    ])
+
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil,
+      presetDic: presetDic
+    )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
+
+    let allReverseCores = reverseMoves.flatMap { $0.chunks.flatMap { $0 } }
+    let mReverse = allReverseCores.first { $0.eid == M }
+    #expect(
+      mReverse?.magneticField == INITIAL_FIELD,
+      "Undo must revert magneticField.stackOffset to its initial value, not drop it"
     )
   }
 

@@ -85,9 +85,10 @@ public enum MoveHistoryHelpers {
       }
       if found.orientation == nil { found.orientation = preset.orientation }
       if found.scale == nil { found.scale = preset.scale }
-      if found.opacity == nil { found.opacity = preset.opacity ?? 1.0 }
+      if found.opacity == nil { found.opacity = preset.opacity }
       if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
       if found.magneticField == nil { found.magneticField = preset.magneticField }
+      if found.huggers == nil { found.huggers = preset.magneticHugs?.huggedBy }
     }
 
     let target: v0.CoreMoveTarget =
@@ -110,6 +111,10 @@ public enum MoveHistoryHelpers {
 
   /// Converts a `Move` into its reverse CoreMoves by looking up each entity's previous state.
   ///
+  /// For each CoreMove, the entity's previous state is found by searching earlier chunks of the
+  /// same move first (for multi-part moves like captures), then falling back to history/presets.
+  /// The original move's animation timing and sound are preserved on the reverse.
+  ///
   /// Returns `[[CoreMove]]` — a chunked array matching the undo direction.
   static func moveToPreviousCoreMoves(
     _ moveToUndo: v0.Move,
@@ -120,65 +125,64 @@ public enum MoveHistoryHelpers {
     var chunksToUndo: [[v0.CoreMove]] = moveToUndo.chunks
 
     while !chunksToUndo.isEmpty {
-      var chunkToUndo: [v0.CoreMove] = chunksToUndo.removeLast()
+      let chunkToUndo = chunksToUndo.removeLast()
       var chunkUndone: [v0.CoreMove] = []
 
-      while !chunkToUndo.isEmpty {
-        let coreMoveToUndo = chunkToUndo.removeLast()
-
-        // Pure snapshot CoreMoves (huggers ordering, no position/magnet) are metadata about
-        // a magnet's huggedBy ordering. They are not entity movements and should not be undone
-        // as such — the correct huggers snapshot is derived from the PREVIOUS state in history.
-        if coreMoveToUndo.huggers != nil && coreMoveToUndo.magnet == nil
-          && coreMoveToUndo.position == nil
-        {
-          // Find this magnet's previous huggers snapshot from history
+      for coreMoveToUndo in chunkToUndo.reversed() {
+        // Pure snapshot CoreMoves (huggers ordering only — no position, magnet, or other
+        // metadata) record a magnet's huggedBy ordering. They are not entity movements —
+        // reverse them by finding the magnet's previous huggers snapshot from history and
+        // emitting a pure snapshot CoreMove. Without this, findPreviousCoreMove would
+        // generate a full movement CoreMove for the same entity, duplicating entries from
+        // the regular movement CoreMove already in this chunk.
+        // CoreMoves that carry both huggers AND other metadata (e.g. magneticField) are
+        // merged side-effect CoreMoves and must be fully reversed via findPreviousCoreMove.
+        let isPureSnapshot =
+          coreMoveToUndo.huggers != nil && coreMoveToUndo.magnet == nil
+          && coreMoveToUndo.position == nil && coreMoveToUndo.orientation == nil
+          && coreMoveToUndo.scale == nil && coreMoveToUndo.opacity == nil
+          && coreMoveToUndo.modelMeta == nil && coreMoveToUndo.magneticField == nil
+        if isPureSnapshot {
           let previousSnapshot = Self.findPreviousCoreMove(
             search: coreMoveToUndo.eid,
             searchThrough: searchThrough,
             presetDic: presetDic
           )
-          if let prevHuggers = previousSnapshot.huggers {
-            chunkUndone.append(v0.CoreMove(eid: coreMoveToUndo.eid, huggers: prevHuggers))
-          } else {
-            // Entity had no huggers before this move — emit empty snapshot to clear them
-            chunkUndone.append(v0.CoreMove(eid: coreMoveToUndo.eid, huggers: []))
-          }
+          chunkUndone.append(
+            v0.CoreMove(eid: coreMoveToUndo.eid, huggers: previousSnapshot.huggers ?? []))
           continue
         }
 
-        if !chunksToUndo.isEmpty {
-          let appearsInEarlierChunks = chunksToUndo.contains {
-            $0.contains { $0.eid == coreMoveToUndo.eid }
-          }
-          if appearsInEarlierChunks {
-            let previousChunks = v0.Move(chunksToUndo)
-            var previousMove1 = Self.findPreviousCoreMove(
-              search: coreMoveToUndo.eid,
-              searchThrough: [previousChunks]
-            )
-            if !previousMove1.hasNoTarget {
-              if let d = coreMoveToUndo.duration { previousMove1.duration = d }
-              if let s = coreMoveToUndo.sound { previousMove1.sound = s }
-              chunkUndone.append(previousMove1)
-              continue
-            }
-          }
-        }
-
-        var previousMove2 = Self.findPreviousCoreMove(
-          search: coreMoveToUndo.eid,
-          searchThrough: searchThrough,
-          presetDic: presetDic
-        )
-        if let d = coreMoveToUndo.duration { previousMove2.duration = d }
-        if let s = coreMoveToUndo.sound { previousMove2.sound = s }
-        chunkUndone.append(previousMove2)
+        // When the same entity appears in an earlier chunk of this move (e.g. a capture
+        // where the attacker is placed in chunk 0, then re-placed in chunk 1), that earlier
+        // chunk provides the target. Otherwise falls back to history/presets.
+        var prev =
+          Self.findInEarlierChunks(eid: coreMoveToUndo.eid, chunks: chunksToUndo)
+          ?? Self.findPreviousCoreMove(
+            search: coreMoveToUndo.eid,
+            searchThrough: searchThrough,
+            presetDic: presetDic
+          )
+        if let d = coreMoveToUndo.duration { prev.duration = d }
+        if let s = coreMoveToUndo.sound { prev.sound = s }
+        chunkUndone.append(prev)
       }
       result.append(chunkUndone)
     }
 
     return result
+  }
+
+  /// Searches earlier (not yet processed) chunks for a movement CoreMove with the given EID.
+  /// Returns `nil` if the entity isn't found or only appears as metadata (no movement target).
+  private static func findInEarlierChunks(
+    eid: v0.EID,
+    chunks: [[v0.CoreMove]]
+  ) -> v0.CoreMove? {
+    guard !chunks.isEmpty else { return nil }
+    guard chunks.contains(where: { $0.contains { $0.eid == eid } }) else { return nil }
+    let found = Self.findPreviousCoreMove(search: eid, searchThrough: [v0.Move(chunks)])
+    return found.hasNoTarget ? nil : found
   }
 
   private static func sameMagnetSameSideUp(_ lhs: v0.CoreMove, _ rhs: v0.CoreMove?) -> Bool {
