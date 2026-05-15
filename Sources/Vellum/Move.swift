@@ -109,6 +109,7 @@ extension v0.CoreMove {
     if other.modelMeta != nil { result.modelMeta = other.modelMeta }
     if other.magneticField != nil { result.magneticField = other.magneticField }
     if other.duration != nil { result.duration = other.duration }
+    if other.delay != nil { result.delay = other.delay }
     if other.sound != nil { result.sound = other.sound }
     if other.huggers != nil { result.huggers = other.huggers }
     if other.relativeTo != nil { result.relativeTo = other.relativeTo }
@@ -125,6 +126,7 @@ extension v0.CoreMove {
     if otherCoreMove.modelMeta == nil { self.modelMeta = nil }
     if otherCoreMove.magneticField == nil { self.magneticField = nil }
     if otherCoreMove.duration == nil { self.duration = nil }
+    if otherCoreMove.delay == nil { self.delay = nil }
     if otherCoreMove.sound == nil { self.sound = nil }
     if otherCoreMove.huggers == nil { self.huggers = nil }
     if otherCoreMove.relativeTo == nil { self.relativeTo = nil }
@@ -143,6 +145,7 @@ extension v0.CoreMove {
     case .modelMeta: m.modelMeta = nil
     case .magneticField: m.magneticField = nil
     case .duration: m.duration = nil
+    case .delay: m.delay = nil
     case .sound: m.sound = nil
     case .huggers: m.huggers = nil
     case .relativeTo: m.relativeTo = nil
@@ -175,6 +178,7 @@ extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
     if let modelMeta { arr.append("modelMeta: \(modelMeta)") }
     if let magneticField { arr.append("magneticField: \(magneticField)") }
     if let duration { arr.append("duration: \(duration)") }
+    if let delay { arr.append("delay: \(delay)") }
     if let sound { arr.append("sound: \(sound)") }
     if let huggers { arr.append("huggers: \(huggers)") }
     if let relativeTo { arr.append("relativeTo: \(relativeTo)") }

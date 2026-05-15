@@ -186,3 +186,45 @@ struct MagneticFieldMetaTests {
     #expect(coreMove.description.contains("magneticField"))
   }
 }
+
+// MARK: - CoreMove delay tests
+
+struct CoreMoveDelayTests {
+  /// CoreMove with delay roundtrips through JSON — backwards-compatible (nil decodes from old data)
+  @Test func coreMove_delay_roundTrip() throws {
+    let withDelay = CoreMove(
+      eid: EID.other(name: "Card1"),
+      target: .position([1, 0, 0]),
+      duration: .milliseconds(200),
+      delay: .milliseconds(100)
+    )
+    let withoutDelay = CoreMove(
+      eid: EID.other(name: "Card2"),
+      target: .position([2, 0, 0]),
+      duration: .milliseconds(200)
+    )
+
+    let encoder = JSONEncoder()
+    let decoder = JSONDecoder()
+
+    // With delay: roundtrips correctly
+    let dataWith = try encoder.encode(withDelay)
+    let decodedWith = try decoder.decode(CoreMove.self, from: dataWith)
+    #expect(decodedWith.delay == .milliseconds(100))
+    #expect(decodedWith.duration == .milliseconds(200))
+
+    // Without delay: decodes as nil (backwards-compatible)
+    let dataWithout = try encoder.encode(withoutDelay)
+    let decodedWithout = try decoder.decode(CoreMove.self, from: dataWithout)
+    #expect(decodedWithout.delay == nil)
+
+    // Merging preserves delay from other
+    let merged = withoutDelay.merging(withDelay)
+    #expect(merged.delay == .milliseconds(100))
+
+    // Omit clears delay
+    let omitted = withDelay.omit(.delay)
+    #expect(omitted.delay == nil)
+    #expect(omitted.duration == .milliseconds(200))
+  }
+}

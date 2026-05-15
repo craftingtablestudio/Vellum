@@ -412,6 +412,9 @@ public enum v0 {
     public var magneticField: MagneticFieldMeta?
     /// When nil, defaults to the initiating action's animation duration.
     public var duration: Duration?
+    /// Optional delay before the animation starts. Used for staggered animations
+    /// where multiple CoreMoves in the same chunk start at different times.
+    public var delay: Duration?
     /// Custom sounds; when nil, only preset USD sounds are played.
     public var sound: SoundGroup?
     /// Snapshot of the desired `huggedBy` ordering for the magnet identified by `eid`.
@@ -432,6 +435,7 @@ public enum v0 {
       modelMeta: ModelMetaComponent? = nil,
       magneticField: MagneticFieldMeta? = nil,
       duration: Duration? = nil,
+      delay: Duration? = nil,
       sound: SoundGroup? = nil,
       huggers: [EID]? = nil,
       relativeTo: EID? = nil
@@ -443,6 +447,7 @@ public enum v0 {
       self.modelMeta = modelMeta
       self.magneticField = magneticField
       self.duration = duration
+      self.delay = delay
       self.sound = sound
       self.huggers = huggers
       self.relativeTo = relativeTo
@@ -465,7 +470,7 @@ public enum v0 {
 
     public enum CodingKeys: String, CodingKey {
       case eid, magnet, position, orientation, scale, opacity, modelMeta, magneticField, duration,
-        sound, huggers, relativeTo
+        delay, sound, huggers, relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -485,6 +490,7 @@ public enum v0 {
         forKey: .magneticField
       )
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)
+      self.delay = try container.decodeIfPresent(Duration.self, forKey: .delay)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
       self.huggers = try container.decodeIfPresent([EID].self, forKey: .huggers)
       self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
@@ -505,6 +511,7 @@ public enum v0 {
       try container.encodeIfPresent(self.modelMeta, forKey: .modelMeta)
       try container.encodeIfPresent(self.magneticField, forKey: .magneticField)
       try container.encodeIfPresent(self.duration, forKey: .duration)
+      try container.encodeIfPresent(self.delay, forKey: .delay)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggers, forKey: .huggers)
       try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
