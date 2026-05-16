@@ -128,21 +128,28 @@ public enum MoveHistoryHelpers {
       let chunkToUndo = chunksToUndo.removeLast()
       var chunkUndone: [v0.CoreMove] = []
 
+      // Pre-scan: collect EIDs that have non-snapshot (movement) CoreMoves in this chunk.
+      // When an EID has both a pure snapshot and a movement CoreMove, the snapshot revert
+      // is redundant — buildHuggersSnapshots in the animation pipeline will recompute the
+      // hugger ordering from the movement data. Skipping the snapshot avoids producing two
+      // CoreMoves with the same EID, which causes magnetWillBeAtPosition lookups to find
+      // the snapshot (no position) instead of the movement CoreMove.
+      let eidsWithMovement = Set(chunkToUndo.filter { cm in
+        cm.position != nil || cm.magnet != nil || cm.orientation != nil
+          || cm.scale != nil || cm.opacity != nil
+          || cm.modelMeta != nil || cm.magneticField != nil
+      }.map { $0.eid })
+
       for coreMoveToUndo in chunkToUndo.reversed() {
-        // Pure snapshot CoreMoves (huggers ordering only — no position, magnet, or other
-        // metadata) record a magnet's huggedBy ordering. They are not entity movements —
-        // reverse them by finding the magnet's previous huggers snapshot from history and
-        // emitting a pure snapshot CoreMove. Without this, findPreviousCoreMove would
-        // generate a full movement CoreMove for the same entity, duplicating entries from
-        // the regular movement CoreMove already in this chunk.
-        // CoreMoves that carry both huggers AND other metadata (e.g. magneticField) are
-        // merged side-effect CoreMoves and must be fully reversed via findPreviousCoreMove.
         let isPureSnapshot =
           coreMoveToUndo.huggers != nil && coreMoveToUndo.magnet == nil
           && coreMoveToUndo.position == nil && coreMoveToUndo.orientation == nil
           && coreMoveToUndo.scale == nil && coreMoveToUndo.opacity == nil
           && coreMoveToUndo.modelMeta == nil && coreMoveToUndo.magneticField == nil
         if isPureSnapshot {
+          // Skip snapshot reverts for EIDs that also have a movement CoreMove — the
+          // animation pipeline's buildHuggersSnapshots will recompute the ordering.
+          if eidsWithMovement.contains(coreMoveToUndo.eid) { continue }
           let previousSnapshot = Self.findPreviousCoreMove(
             search: coreMoveToUndo.eid,
             searchThrough: searchThrough,
@@ -179,10 +186,7 @@ public enum MoveHistoryHelpers {
 
   /// Searches earlier (not yet processed) chunks for a movement CoreMove with the given EID.
   /// Returns `nil` if the entity isn't found or only appears as metadata (no movement target).
-  private static func findInEarlierChunks(
-    eid: v0.EID,
-    chunks: [[v0.CoreMove]]
-  ) -> v0.CoreMove? {
+  private static func findInEarlierChunks(eid: v0.EID, chunks: [[v0.CoreMove]]) -> v0.CoreMove? {
     guard !chunks.isEmpty else { return nil }
     guard chunks.contains(where: { $0.contains { $0.eid == eid } }) else { return nil }
     let found = Self.findPreviousCoreMove(search: eid, searchThrough: [v0.Move(chunks)])
