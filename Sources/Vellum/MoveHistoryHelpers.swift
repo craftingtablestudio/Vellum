@@ -165,6 +165,10 @@ public enum MoveHistoryHelpers {
           )
         if let d = coreMoveToUndo.duration { prev.duration = d }
         if let s = coreMoveToUndo.sound { prev.sound = s }
+        // EntityState stores opacity nil when 1.0, but CoreMove nil means "no change".
+        // When the forward move explicitly set opacity and history/preset returned nil,
+        // the entity was at default 1.0 — make that explicit so undo restores visibility.
+        if coreMoveToUndo.opacity != nil && prev.opacity == nil { prev.opacity = 1.0 }
         chunkUndone.append(prev)
       }
       result.append(chunkUndone)

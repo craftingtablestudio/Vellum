@@ -833,8 +833,8 @@ struct MoveToPreviousCoreMovesTests {
       reverseMoves == [
         Move([
           [
-            mock.coreMove(eid: "CardsPackClosed", target: .position(POS), ),
-            mock.coreMove(eid: "CardsPackOpen", target: .position(POS)),
+            mock.coreMove(eid: "CardsPackClosed", target: .position(POS), opacity: 1.0),
+            mock.coreMove(eid: "CardsPackOpen", target: .position(POS), opacity: 1.0),
           ]
         ])
       ]
