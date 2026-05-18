@@ -206,7 +206,7 @@ public enum v0 {
     case destroy
   }
 
-  // MARK: - MagneticFieldMeta
+  // MARK: - MagneticFieldPartial
 
   /// Serialisable snapshot of a magnet's field configuration, used to record field
   /// changes in moves, sync them over SharePlay, persist them in save data, and
@@ -215,7 +215,7 @@ public enum v0 {
   /// Platform-agnostic representation of `MagneticFieldComponent` properties that
   /// can change at runtime via a `CoreMove`. All fields are optional — `nil` means
   /// no override (the entity keeps its current value for that field).
-  public struct MagneticFieldMeta: Codable, Sendable, Equatable {
+  public struct MagneticFieldPartial: Codable, Sendable, Equatable {
     public var hugEffect: HugEffect?
     public var fieldRadius: Float?
     /// An offset to apply to entities being stacked on this magnet.
@@ -302,7 +302,7 @@ public enum v0 {
     public var modelMeta: ModelMetaComponent?
     /// Snapshot of the entity's magnetic field configuration (e.g. stackOffset for splay direction).
     /// nil means no override — the entity keeps its authored MagneticFieldComponent as-is.
-    public var magneticField: MagneticFieldMeta?
+    public var magneticField: MagneticFieldPartial?
     /// nil represents no opacity override (i.e. fully opaque / 1.0).
     public var opacity: Float?
     /// The coordinate space for position/orientation values.
@@ -318,7 +318,7 @@ public enum v0 {
       physicsMode: PhysicsBodyMode? = nil,
       magneticHugs: MagneticHugsComponent? = nil,
       modelMeta: ModelMetaComponent? = nil,
-      magneticField: MagneticFieldMeta? = nil,
+      magneticField: MagneticFieldPartial? = nil,
       opacity: Float? = nil,
       relativeTo: EID? = nil
     ) {
@@ -359,7 +359,7 @@ public enum v0 {
       )
       self.modelMeta = try container.decodeIfPresent(ModelMetaComponent.self, forKey: .modelMeta)
       self.magneticField = try container.decodeIfPresent(
-        MagneticFieldMeta.self,
+        MagneticFieldPartial.self,
         forKey: .magneticField
       )
       self.opacity = try container.decodeIfPresent(Float.self, forKey: .opacity)
@@ -409,7 +409,7 @@ public enum v0 {
     public var modelMeta: ModelMetaComponent?
     /// Snapshot of the target entity's magnetic field configuration to apply (e.g. stackOffset
     /// for splay direction changes). nil means no change to the entity's MagneticFieldComponent.
-    public var magneticField: MagneticFieldMeta?
+    public var magneticField: MagneticFieldPartial?
     /// When nil, defaults to the initiating action's animation duration.
     public var duration: Duration?
     /// Optional delay before the animation starts. Used for staggered animations
@@ -433,7 +433,7 @@ public enum v0 {
       scale: SIMD3<Float>? = nil,
       opacity: Float? = nil,
       modelMeta: ModelMetaComponent? = nil,
-      magneticField: MagneticFieldMeta? = nil,
+      magneticField: MagneticFieldPartial? = nil,
       duration: Duration? = nil,
       delay: Duration? = nil,
       sound: SoundGroup? = nil,
@@ -486,7 +486,7 @@ public enum v0 {
       self.opacity = try container.decodeIfPresent(Float.self, forKey: .opacity)
       self.modelMeta = try container.decodeIfPresent(ModelMetaComponent.self, forKey: .modelMeta)
       self.magneticField = try container.decodeIfPresent(
-        MagneticFieldMeta.self,
+        MagneticFieldPartial.self,
         forKey: .magneticField
       )
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)

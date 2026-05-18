@@ -922,8 +922,8 @@ struct MoveToPreviousCoreMovesTests {
   @Test func undo_magneticFieldStackOffset_revertsWhenMergedWithHuggers() {
     let M = EID.other(name: "M")
     let Card = EID.other(name: "Card")
-    let INITIAL_FIELD = MagneticFieldMeta(stackOffset: [0, 0, 0])
-    let CHANGED_FIELD = MagneticFieldMeta(stackOffset: [0, 0, -0.026])
+    let INITIAL_FIELD = MagneticFieldPartial(stackOffset: [0, 0, 0])
+    let CHANGED_FIELD = MagneticFieldPartial(stackOffset: [0, 0, -0.026])
 
     let presetDic: [EID: EntityState] = [
       M: EntityState(eid: M, position: [0, 0, 0], magneticField: INITIAL_FIELD),

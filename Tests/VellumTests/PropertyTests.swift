@@ -79,14 +79,14 @@ struct MoveHistoryPropertyTests {
   }
 }
 
-// MARK: - MagneticFieldMeta tests
+// MARK: - MagneticFieldPartial tests
 
-typealias MagneticFieldMeta = v0.MagneticFieldMeta
+typealias MagneticFieldPartial = v0.MagneticFieldPartial
 
-struct MagneticFieldMetaTests {
+struct MagneticFieldPartialTests {
   /// CoreMove with magneticField roundtrips through JSON
   @Test func coreMove_magneticField_roundTrip() throws {
-    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0])
     let coreMove = CoreMove(
       eid: EID.other(name: "TestMagnet"),
       target: .position([1, 0, 0]),
@@ -115,7 +115,7 @@ struct MagneticFieldMetaTests {
 
   /// EntityState with magneticField roundtrips through JSON
   @Test func entityState_magneticField_roundTrip() throws {
-    let meta = MagneticFieldMeta(stackOffset: [0, 0, 0.02])
+    let meta = MagneticFieldPartial(stackOffset: [0, 0, 0.02])
     let state = EntityState(
       eid: EID.other(name: "TestMagnet"),
       position: [1, 0, 0],
@@ -130,7 +130,7 @@ struct MagneticFieldMetaTests {
 
   /// fillInEmptyParts populates magneticField from EntityState when nil
   @Test func fillInEmptyParts_populatesMagneticFieldFromEntityState() {
-    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0])
     let initialState = EntityState(
       eid: EID.other(name: "TestMagnet"),
       position: [1, 0, 0],
@@ -147,7 +147,7 @@ struct MagneticFieldMetaTests {
 
   /// removePropsNillIn clears magneticField when the reference CoreMove has it nil
   @Test func removePropsNillIn_clearsMagneticField() {
-    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0])
     var coreMove = CoreMove(
       eid: EID.other(name: "TestMagnet"),
       target: .position([2, 0, 0]),
@@ -164,7 +164,7 @@ struct MagneticFieldMetaTests {
 
   /// omit supports the magneticField CodingKeys case
   @Test func omit_clearsMagneticField() {
-    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0])
     let coreMove = CoreMove(
       eid: EID.other(name: "TestMagnet"),
       target: .position([2, 0, 0]),
@@ -177,7 +177,7 @@ struct MagneticFieldMetaTests {
 
   /// description includes magneticField when present
   @Test func description_includesMagneticField() {
-    let meta = MagneticFieldMeta(stackOffset: [0.01, 0, 0])
+    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0])
     let coreMove = CoreMove(
       eid: EID.other(name: "TestMagnet"),
       target: .position([2, 0, 0]),

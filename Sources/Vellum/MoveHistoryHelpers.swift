@@ -27,7 +27,7 @@ public enum MoveHistoryHelpers {
       var scale: SIMD3<Float>? = nil
       var opacity: Float? = nil
       var modelMeta: v0.ModelMetaComponent? = nil
-      var magneticField: v0.MagneticFieldMeta? = nil
+      var magneticField: v0.MagneticFieldPartial? = nil
       var huggers: [v0.EID]? = nil
       /// Tracks the coordinate space of the found position/orientation. Set from the same
       /// CoreMove that provided the position (or magnet), so the values and their space stay paired.
