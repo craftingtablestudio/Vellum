@@ -284,6 +284,30 @@ public enum v0 {
       try container.encodeIfPresent(self.overflowTo, forKey: .overflowTo)
       try container.encodeIfPresent(self.yAlignmentTolerance, forKey: .yAlignmentTolerance)
     }
+
+    /// Fills in any nil fields from `other`, preserving any already-set fields.
+    public mutating func fillInEmptyParts(from other: MagneticFieldPartial) {
+      if self.hugEffect == nil { self.hugEffect = other.hugEffect }
+      if self.fieldRadius == nil { self.fieldRadius = other.fieldRadius }
+      if self.stackOffset == nil { self.stackOffset = other.stackOffset }
+      if self.collisionSound == nil { self.collisionSound = other.collisionSound }
+      if self.entityLimit == nil { self.entityLimit = other.entityLimit }
+      if self.forwardTo == nil { self.forwardTo = other.forwardTo }
+      if self.overflowTo == nil { self.overflowTo = other.overflowTo }
+      if self.yAlignmentTolerance == nil { self.yAlignmentTolerance = other.yAlignmentTolerance }
+    }
+
+    /// MagneticFieldComponent default values.
+    public static let componentDefaults = MagneticFieldPartial(
+      hugEffect: HugEffect.none,
+      fieldRadius: 0.08,
+      stackOffset: .zero,
+      collisionSound: SoundGroup.none,
+      entityLimit: -1,
+      forwardTo: "",
+      overflowTo: "",
+      yAlignmentTolerance: 360
+    )
   }
 
   // MARK: - EntityState

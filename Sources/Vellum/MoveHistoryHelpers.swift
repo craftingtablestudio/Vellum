@@ -46,7 +46,13 @@ public enum MoveHistoryHelpers {
         if self.scale == nil { self.scale = coreMove.scale }
         if self.opacity == nil { self.opacity = coreMove.opacity }
         if self.modelMeta == nil { self.modelMeta = coreMove.modelMeta }
-        if self.magneticField == nil { self.magneticField = coreMove.magneticField }
+        if let incoming = coreMove.magneticField {
+          if self.magneticField == nil {
+            self.magneticField = incoming
+          } else {
+            self.magneticField!.fillInEmptyParts(from: incoming)
+          }
+        }
         if self.huggers == nil { self.huggers = coreMove.huggers }
       }
 
@@ -87,7 +93,13 @@ public enum MoveHistoryHelpers {
       if found.scale == nil { found.scale = preset.scale }
       if found.opacity == nil { found.opacity = preset.opacity }
       if found.modelMeta == nil { found.modelMeta = preset.modelMeta }
-      if found.magneticField == nil { found.magneticField = preset.magneticField }
+      if let presetField = preset.magneticField {
+        if found.magneticField == nil {
+          found.magneticField = presetField
+        } else {
+          found.magneticField!.fillInEmptyParts(from: presetField)
+        }
+      }
       if found.huggers == nil { found.huggers = preset.magneticHugs?.huggedBy }
     }
 
@@ -134,11 +146,13 @@ public enum MoveHistoryHelpers {
       // hugger ordering from the movement data. Skipping the snapshot avoids producing two
       // CoreMoves with the same EID, which causes magnetWillBeAtPosition lookups to find
       // the snapshot (no position) instead of the movement CoreMove.
-      let eidsWithMovement = Set(chunkToUndo.filter { cm in
-        cm.position != nil || cm.magnet != nil || cm.orientation != nil
-          || cm.scale != nil || cm.opacity != nil
-          || cm.modelMeta != nil || cm.magneticField != nil
-      }.map { $0.eid })
+      let eidsWithMovement = Set(
+        chunkToUndo.filter { cm in
+          cm.position != nil || cm.magnet != nil || cm.orientation != nil || cm.scale != nil
+            || cm.opacity != nil || cm.modelMeta != nil || cm.magneticField != nil
+        }
+        .map { $0.eid }
+      )
 
       for coreMoveToUndo in chunkToUndo.reversed() {
         let isPureSnapshot =
@@ -156,7 +170,8 @@ public enum MoveHistoryHelpers {
             presetDic: presetDic
           )
           chunkUndone.append(
-            v0.CoreMove(eid: coreMoveToUndo.eid, huggers: previousSnapshot.huggers ?? []))
+            v0.CoreMove(eid: coreMoveToUndo.eid, huggers: previousSnapshot.huggers ?? [])
+          )
           continue
         }
 
@@ -176,6 +191,25 @@ public enum MoveHistoryHelpers {
         // When the forward move explicitly set opacity and history/preset returned nil,
         // the entity was at default 1.0 — make that explicit so undo restores visibility.
         if coreMoveToUndo.opacity != nil && prev.opacity == nil { prev.opacity = 1.0 }
+        // Same for magneticField: if the forward move changed a field but history/preset
+        // had no previous value for it, fall back to the MagneticFieldComponent default.
+        if let changed = coreMoveToUndo.magneticField {
+          let d = v0.MagneticFieldPartial.componentDefaults
+          var f = prev.magneticField ?? v0.MagneticFieldPartial()
+          if changed.hugEffect != nil && f.hugEffect == nil { f.hugEffect = d.hugEffect }
+          if changed.fieldRadius != nil && f.fieldRadius == nil { f.fieldRadius = d.fieldRadius }
+          if changed.stackOffset != nil && f.stackOffset == nil { f.stackOffset = d.stackOffset }
+          if changed.collisionSound != nil && f.collisionSound == nil {
+            f.collisionSound = d.collisionSound
+          }
+          if changed.entityLimit != nil && f.entityLimit == nil { f.entityLimit = d.entityLimit }
+          if changed.forwardTo != nil && f.forwardTo == nil { f.forwardTo = d.forwardTo }
+          if changed.overflowTo != nil && f.overflowTo == nil { f.overflowTo = d.overflowTo }
+          if changed.yAlignmentTolerance != nil && f.yAlignmentTolerance == nil {
+            f.yAlignmentTolerance = d.yAlignmentTolerance
+          }
+          prev.magneticField = f
+        }
         chunkUndone.append(prev)
       }
       result.append(chunkUndone)
