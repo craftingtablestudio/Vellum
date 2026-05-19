@@ -110,6 +110,7 @@ extension v0.CoreMove {
     if other.magneticField != nil { result.magneticField = other.magneticField }
     if other.duration != nil { result.duration = other.duration }
     if other.delay != nil { result.delay = other.delay }
+    if other.force != nil { result.force = other.force }
     if other.sound != nil { result.sound = other.sound }
     if other.huggers != nil { result.huggers = other.huggers }
     if other.relativeTo != nil { result.relativeTo = other.relativeTo }
@@ -127,6 +128,7 @@ extension v0.CoreMove {
     if otherCoreMove.magneticField == nil { self.magneticField = nil }
     if otherCoreMove.duration == nil { self.duration = nil }
     if otherCoreMove.delay == nil { self.delay = nil }
+    if otherCoreMove.force == nil { self.force = nil }
     if otherCoreMove.sound == nil { self.sound = nil }
     if otherCoreMove.huggers == nil { self.huggers = nil }
     if otherCoreMove.relativeTo == nil { self.relativeTo = nil }
@@ -146,6 +148,7 @@ extension v0.CoreMove {
     case .magneticField: m.magneticField = nil
     case .duration: m.duration = nil
     case .delay: m.delay = nil
+    case .force: m.force = nil
     case .sound: m.sound = nil
     case .huggers: m.huggers = nil
     case .relativeTo: m.relativeTo = nil

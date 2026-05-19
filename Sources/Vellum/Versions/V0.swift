@@ -439,6 +439,11 @@ public enum v0 {
     /// Optional delay before the animation starts. Used for staggered animations
     /// where multiple CoreMoves in the same chunk start at different times.
     public var delay: Duration?
+    /// Initial velocity impulse applied via physics before the main animation.
+    /// When set, the entity is made dynamic with gravity, given this linear velocity,
+    /// and after 2 seconds physics is disabled and the normal position/magnet animation begins
+    /// from wherever the entity ended up.
+    public var force: SIMD3<Float>?
     /// Custom sounds; when nil, only preset USD sounds are played.
     public var sound: SoundGroup?
     /// Snapshot of the desired `huggedBy` ordering for the magnet identified by `eid`.
@@ -460,9 +465,10 @@ public enum v0 {
       magneticField: MagneticFieldPartial? = nil,
       duration: Duration? = nil,
       delay: Duration? = nil,
+      force: SIMD3<Float>? = nil,
       sound: SoundGroup? = nil,
       huggers: [EID]? = nil,
-      relativeTo: EID? = nil
+      relativeTo: EID? = nil,
     ) {
       self.eid = eid
       self.orientation = orientation
@@ -472,6 +478,7 @@ public enum v0 {
       self.magneticField = magneticField
       self.duration = duration
       self.delay = delay
+      self.force = force
       self.sound = sound
       self.huggers = huggers
       self.relativeTo = relativeTo
@@ -494,7 +501,7 @@ public enum v0 {
 
     public enum CodingKeys: String, CodingKey {
       case eid, magnet, position, orientation, scale, opacity, modelMeta, magneticField, duration,
-        delay, sound, huggers, relativeTo
+        delay, force, sound, huggers, relativeTo
     }
 
     public init(from decoder: Decoder) throws {
@@ -515,6 +522,7 @@ public enum v0 {
       )
       self.duration = try container.decodeIfPresent(Duration.self, forKey: .duration)
       self.delay = try container.decodeIfPresent(Duration.self, forKey: .delay)
+      self.force = try SIMD3FloatCodable.decodeIfPresent(from: container, forKey: .force)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
       self.huggers = try container.decodeIfPresent([EID].self, forKey: .huggers)
       self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
@@ -536,6 +544,7 @@ public enum v0 {
       try container.encodeIfPresent(self.magneticField, forKey: .magneticField)
       try container.encodeIfPresent(self.duration, forKey: .duration)
       try container.encodeIfPresent(self.delay, forKey: .delay)
+      try SIMD3FloatCodable.encodeIfPresent(self.force, to: &container, forKey: .force)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggers, forKey: .huggers)
       try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
