@@ -168,6 +168,26 @@ extension v0.CoreMove {
   }
 }
 
+// MARK: - EntityState ← CoreMove
+
+extension v0.EntityState {
+  /// Snapshot-style EntityState carrying the CoreMove's authored target fields.
+  /// `magneticHugs.hugging` is derived from `coreMove.magnet` (nil for position-only moves).
+  public init(from coreMove: v0.CoreMove) {
+    self.init(
+      eid: coreMove.eid,
+      position: coreMove.position,
+      orientation: coreMove.orientation,
+      scale: coreMove.scale,
+      magneticHugs: coreMove.magnet.map { v0.MagneticHugsComponent(hugging: $0, huggedBy: []) },
+      modelMeta: coreMove.modelMeta,
+      magneticField: coreMove.magneticField,
+      opacity: coreMove.opacity,
+      relativeTo: coreMove.relativeTo
+    )
+  }
+}
+
 // MARK: - CoreMove: CustomStringConvertible
 
 extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
