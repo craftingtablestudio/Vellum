@@ -18,6 +18,29 @@ extension v0.Move {
       ?? v0.EID.none
   }
 
+  /// The union of every EID this Move affects: `coreMove.eid` plus `coreMove.magnet` (when
+  /// non-nil) plus each EID in `coreMove.huggers ?? []`, across every CoreMove in every chunk.
+  ///
+  /// `coreMove.relativeTo` is intentionally excluded — it is a coordinate-space reference,
+  /// not an entity the move acts on. `v0.EID.none` is excluded so placeholder CoreMoves
+  /// don't pollute matching.
+  ///
+  /// Used by Magister's pending-preview ledger (ADR 0003) to decide which previews a real
+  /// move overlaps with, supersedes, or covers.
+  public var touchedEntitySet: Set<v0.EID> {
+    var result: Set<v0.EID> = []
+    for chunk in chunks {
+      for coreMove in chunk {
+        if coreMove.eid != v0.EID.none { result.insert(coreMove.eid) }
+        if let magnet = coreMove.magnet, magnet != v0.EID.none { result.insert(magnet) }
+        if let huggers = coreMove.huggers {
+          for hugger in huggers where hugger != v0.EID.none { result.insert(hugger) }
+        }
+      }
+    }
+    return result
+  }
+
   /// Returns a copy of this move with additional side-effect CoreMoves added.
   /// - `during`: merged into chunk 0 (parallel with main move)
   /// - `after`: merged into chunk 1 (sequential after)
