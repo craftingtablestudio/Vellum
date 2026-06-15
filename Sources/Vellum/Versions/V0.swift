@@ -444,7 +444,7 @@ public enum v0 {
     /// and after 2 seconds physics is disabled and the normal position/magnet animation begins
     /// from wherever the entity ended up.
     public var force: SIMD3<Float>?
-    /// Custom sounds; when nil, only preset USD sounds are played.
+    /// Custom sound to play
     public var sound: SoundGroup?
     /// Snapshot of the desired `huggedBy` ordering for the magnet identified by `eid`.
     /// When present, the pipeline expands this into individual per-hugger CoreMoves

@@ -124,7 +124,7 @@ public enum MoveHistoryHelpers {
   /// Converts a `Move` into its reverse CoreMoves by looking up each entity's previous state.
   ///
   /// For each CoreMove, the entity's previous state is found by searching earlier chunks of the
-  /// same move first (for multi-part moves like captures), then falling back to history/presets.
+  /// same move first (for multi-part moves like captures), then falling back to history/variants.
   /// The original move's animation timing and sound are preserved on the reverse.
   ///
   /// Returns `[[CoreMove]]` — a chunked array matching the undo direction.
@@ -177,7 +177,7 @@ public enum MoveHistoryHelpers {
 
         // When the same entity appears in an earlier chunk of this move (e.g. a capture
         // where the attacker is placed in chunk 0, then re-placed in chunk 1), that earlier
-        // chunk provides the target. Otherwise falls back to history/presets.
+        // chunk provides the target. Otherwise falls back to history/variants.
         var prev =
           Self.findInEarlierChunks(eid: coreMoveToUndo.eid, chunks: chunksToUndo)
           ?? Self.findPreviousCoreMove(
