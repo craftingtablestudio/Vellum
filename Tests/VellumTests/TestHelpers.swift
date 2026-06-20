@@ -57,8 +57,7 @@ enum mock {
   ) -> CoreMove {
     let target =
       switch target {
-      case .magnet(let magnetEid):
-        CoreMoveTarget.magnet(EID.other(name: magnetEid))
+      case .magnet(let magnetEid): CoreMoveTarget.magnet(EID.other(name: magnetEid))
       case .originalCloner: CoreMoveTarget.magnet(.originalCloner)
       case .position(let position): CoreMoveTarget.position(position)
       case .unset: CoreMoveTarget.unset
@@ -82,8 +81,7 @@ enum mock {
   ) -> CoreMove {
     let target =
       switch target {
-      case .magnet(let magnetEid):
-        CoreMoveTarget.magnet(EID.other(name: magnetEid))
+      case .magnet(let magnetEid): CoreMoveTarget.magnet(EID.other(name: magnetEid))
       case .originalCloner: CoreMoveTarget.magnet(.originalCloner)
       case .position(let position): CoreMoveTarget.position(position)
       case .unset: CoreMoveTarget.unset
@@ -99,16 +97,19 @@ enum mock {
 
   /// Produces a deterministic UUID from a string so the same eidClone string
   /// yields the same EID across both history setup and assertions in a test.
-  private static func stableUUID(_ string: String) -> UUID {
+  static func stableUUID(_ string: String) -> UUID {
     var h: UInt64 = 14_695_981_039_346_656_037
-    for byte in string.utf8 { h ^= UInt64(byte); h = h &* 1_099_511_628_211 }
-    return UUID(uuid: (
-      UInt8((h >> 56) & 0xFF), UInt8((h >> 48) & 0xFF),
-      UInt8((h >> 40) & 0xFF), UInt8((h >> 32) & 0xFF),
-      UInt8((h >> 24) & 0xFF), UInt8((h >> 16) & 0xFF),
-      UInt8((h >> 8) & 0xFF), UInt8(h & 0xFF),
-      0, 0, 0, 0, 0, 0, 0, 0
-    ))
+    for byte in string.utf8 {
+      h ^= UInt64(byte)
+      h = h &* 1_099_511_628_211
+    }
+    return UUID(
+      uuid: (
+        UInt8((h >> 56) & 0xFF), UInt8((h >> 48) & 0xFF), UInt8((h >> 40) & 0xFF),
+        UInt8((h >> 32) & 0xFF), UInt8((h >> 24) & 0xFF), UInt8((h >> 16) & 0xFF),
+        UInt8((h >> 8) & 0xFF), UInt8(h & 0xFF), 0, 0, 0, 0, 0, 0, 0, 0
+      )
+    )
   }
 
   static func move(

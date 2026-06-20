@@ -149,6 +149,139 @@ extension v0.MoveHistory {
   /// All moves up to and including the current `moveNr`.
   public var playedMoves: [v0.Move] { return self.moves.slice(0, self.moveNrActual.value) }
 
+  // MARK: materializeEntityStateDic
+
+  /// Forward-folds the played history onto `presetDic` to reconstruct the materialised
+  /// `[EID: EntityState]` for the currently-visible `moveNr`.
+  ///
+  /// This is the replacement for the (removed) persisted `entityDic` "snapshot truth":
+  /// instead of storing the materialised state, it is recomputed on demand from the two
+  /// things that ARE persisted — `presetDic` (the move-0 baseline) and `history.moves`.
+  ///
+  /// For each entity that exists at the current `moveNr` (every key in `presetDic` plus every
+  /// EID that ever appears in a played move), the last-known state is resolved via
+  /// `MoveHistoryHelpers.findPreviousCoreMove` — the same primitive the undo system already
+  /// trusts — and converted into an `EntityState`.
+  ///
+  /// `physicsMode` is carried from `presetDic` (no `CoreMove` field changes it). A clone spawned
+  /// *mid-history* has no `presetDic` entry, so its `physicsMode` resolves to `nil` — which is
+  /// harmless: no load path applies `entityDic.physicsMode`. Clones inherit their template's
+  /// physics mode at creation, `CoreMove`s carry no physics, and the only consumer of
+  /// `EntityState.physicsMode` (`upsertProgramatically`) runs for peer live-sync, fed by a wire
+  /// capture rather than this dictionary.
+  ///
+  /// Destruction is folded too: an entity whose resolved magnet is a `.destroy` magnet (a Go
+  /// bowl, a Solitaire/Innovation sink) is dropped from the result, mirroring the live scene
+  /// where capturing an entity deletes it. Dangling references to dropped entities are stripped
+  /// from every surviving magnet's `huggedBy`.
+  ///
+  /// Complexity is O(eids × playedMoves) worst case via the per-EID reverse search; for realistic
+  /// games this is well within budget (see the Vellum perf test). Pass an explicit `upTo` to
+  /// materialise a specific move number (defaults to the history's current `moveNr`).
+  public func materializeEntityStateDic(
+    presetDic: [v0.EID: v0.EntityState],
+    upTo: ActualMoveNr? = nil
+  ) -> [v0.EID: v0.EntityState] {
+    let visibleCount = (upTo ?? self.moveNrActual).value
+    let playedMoves = self.moves.slice(0, visibleCount)
+
+    // The set of entities that exist at this move number: the preset baseline plus every EID
+    // that authored a played move, plus every EID referenced as a `magnet` target. Today every
+    // real magnet is either preset scenery or a fan/tower host that authors its own `huggers`
+    // snapshot (so it already shows up as `coreMove.eid`); including the target defensively keeps
+    // the result self-consistent if a future plugin adds a magnet referenced only as a target —
+    // otherwise a hugger would point at a magnet missing from the dic (violating `validateEntityDic`
+    // rule 5). `.none` / `.originalCloner` are not real entities and are skipped.
+    var candidateEids = Set(presetDic.keys)
+    for move in playedMoves {
+      for chunk in move.chunks {
+        for coreMove in chunk where coreMove.eid != v0.EID.none {
+          candidateEids.insert(coreMove.eid)
+          if let magnet = coreMove.magnet, magnet != .none, magnet != .originalCloner {
+            candidateEids.insert(magnet)
+          }
+        }
+      }
+    }
+
+    // Resolve each candidate's last-known state by folding history onto the preset baseline.
+    var resolved: [v0.EID: v0.CoreMove] = [:]
+    for eid in candidateEids {
+      resolved[eid] = MoveHistoryHelpers.findPreviousCoreMove(
+        search: eid,
+        searchThrough: playedMoves,
+        presetDic: presetDic
+      )
+    }
+
+    /// True when `eid`'s resolved magnetic field is a destroyer. `findPreviousCoreMove` already
+    /// folds the preset's `magneticField` into the resolved CoreMove, so checking `resolved` is
+    /// sufficient — and every magnet referenced as a target is a `candidateEids` member, hence
+    /// always present in `resolved`.
+    func isDestroyer(_ eid: v0.EID) -> Bool { resolved[eid]?.magneticField?.hugEffect == .destroy }
+
+    // Entities whose final resting magnet destroys them are gone from the materialised scene.
+    let destroyed = Set(
+      candidateEids.filter { eid in
+        if let magnet = resolved[eid]?.magnet { return isDestroyer(magnet) }
+        return false
+      }
+    )
+
+    // The authoritative `hugging` relationship per surviving entity. `huggedBy` is reconciled
+    // against THIS map below so the two stay bidirectionally consistent — a stale `huggers`
+    // snapshot can't leave a magnet claiming a hugger that has since moved (or been destroyed).
+    //
+    // `.originalCloner` / `.none` are NOT real magnets: `findPreviousCoreMove` returns
+    // `.magnet(.originalCloner)` as a fallback for any clone with no position/magnet of its own —
+    // in practice a clone magnet HOST (e.g. a ClonableGroup `Hand`) that only ever appears in
+    // history via its own `huggers` snapshot. Such a host isn't hugging anything; it carries its
+    // huggers below. Treating the sentinel as a hug would point it at a non-existent entity.
+    var huggingByEid: [v0.EID: v0.EID] = [:]
+    for eid in candidateEids where !destroyed.contains(eid) {
+      if let magnet = resolved[eid]?.magnet, magnet != .originalCloner, magnet != .none,
+        !destroyed.contains(magnet)
+      {
+        huggingByEid[eid] = magnet
+      }
+    }
+
+    var dic: [v0.EID: v0.EntityState] = [:]
+    for eid in candidateEids where !destroyed.contains(eid) {
+      guard let coreMove = resolved[eid] else { continue }
+      let hugging = huggingByEid[eid]
+      // Reconcile huggedBy: keep the snapshot's ordering but only for entities that actually hug
+      // this magnet now, then append any current huggers the snapshot missed (deterministic order).
+      let actualHuggers = Set(huggingByEid.filter { $0.value == eid }.map { $0.key })
+      let ordered = (coreMove.huggers ?? []).filter { actualHuggers.contains($0) }
+      let stragglers = actualHuggers.subtracting(ordered).sorted { $0.description < $1.description }
+      let huggedBy = ordered + stragglers
+      // Keep a present-but-empty `MagneticHugsComponent` for any entity that participates in the
+      // magnet system — a magnet whose last hugger just left still carries an (empty) component
+      // in the live scene, and `validateEntityDic` relies on a magnet's component being present to
+      // confirm the bidirectional hug. The proxy: it hugs/is-hugged now, history snapshotted its
+      // huggers, or it carried the component at the preset baseline.
+      let participatesInMagnetism =
+        hugging != nil || !huggedBy.isEmpty || coreMove.huggers != nil
+        || presetDic[eid]?.magneticHugs != nil
+      let magneticHugs: v0.MagneticHugsComponent? =
+        participatesInMagnetism
+        ? v0.MagneticHugsComponent(hugging: hugging, huggedBy: huggedBy) : nil
+      dic[eid] = v0.EntityState(
+        eid: eid,
+        position: coreMove.position,
+        orientation: coreMove.orientation,
+        scale: coreMove.scale,
+        physicsMode: presetDic[eid]?.physicsMode,
+        magneticHugs: magneticHugs,
+        modelMeta: coreMove.modelMeta,
+        magneticField: coreMove.magneticField,
+        opacity: coreMove.opacity
+      )
+    }
+    return dic
+  }
+
   private var lastVisibleMove: v0.Move? { return self.playedMoves.at(-1) }
 
   // MARK: compareMove
@@ -193,7 +326,9 @@ extension v0.MoveHistory {
       if DEBUGGING_VELLUM { print("[compareMove] \(coreMove.eid) unchanged:", unchanged) }
       return unchanged
     }
-    if DEBUGGING_VELLUM { print("[compareMove] moveSameAsLast:", moveSameAsLast, "chunks:", moveToAppend.chunks.count) }
+    if DEBUGGING_VELLUM {
+      print("[compareMove] moveSameAsLast:", moveSameAsLast, "chunks:", moveToAppend.chunks.count)
+    }
     return moveSameAsLast ? .matchesCurrentState : .isNew
   }
 
@@ -289,7 +424,9 @@ extension v0.MoveHistory {
   // MARK: browseHistory
 
   public enum BrowseResult {
-    case animateMoves(movesAndNrs: [(move: v0.Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)])
+    case animateMoves(
+      movesAndNrs: [(move: v0.Move, oldMoveNr: ActualMoveNr, newMoveNr: ActualMoveNr)]
+    )
     case stopAnimating(stopAt: ActualMoveNr)
   }
 
