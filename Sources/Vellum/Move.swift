@@ -22,9 +22,7 @@ extension v0.Move {
   /// (when non-nil) plus each EID in `coreMove.huggers ?? []`, across every CoreMove in
   /// every chunk.
   ///
-  /// `coreMove.relativeTo` is intentionally excluded — it is a coordinate-space reference,
-  /// not an entity the move acts on. `v0.EID.none` is excluded so placeholder CoreMoves
-  /// don't pollute matching.
+  /// `v0.EID.none` is excluded so placeholder CoreMoves don't pollute matching.
   public var relatedEids: Set<v0.EID> {
     var result: Set<v0.EID> = []
     for chunk in chunks {
@@ -116,7 +114,6 @@ extension v0.CoreMove {
     if modelMeta == nil { self.modelMeta = initialState.modelMeta ?? nil }
     if magneticField == nil { self.magneticField = initialState.magneticField ?? nil }
     if huggers == nil { self.huggers = initialState.magneticHugs?.huggedBy }
-    if relativeTo == nil { self.relativeTo = initialState.relativeTo }
   }
 
   /// Returns a copy with non-nil fields from `other` applied on top of self.
@@ -134,7 +131,6 @@ extension v0.CoreMove {
     if other.force != nil { result.force = other.force }
     if other.sound != nil { result.sound = other.sound }
     if other.huggers != nil { result.huggers = other.huggers }
-    if other.relativeTo != nil { result.relativeTo = other.relativeTo }
     return result
   }
 
@@ -152,7 +148,6 @@ extension v0.CoreMove {
     if otherCoreMove.force == nil { self.force = nil }
     if otherCoreMove.sound == nil { self.sound = nil }
     if otherCoreMove.huggers == nil { self.huggers = nil }
-    if otherCoreMove.relativeTo == nil { self.relativeTo = nil }
   }
 
   /// Returns a copy of this CoreMove with the given field cleared.
@@ -172,7 +167,6 @@ extension v0.CoreMove {
     case .force: m.force = nil
     case .sound: m.sound = nil
     case .huggers: m.huggers = nil
-    case .relativeTo: m.relativeTo = nil
     }
     return m
   }
@@ -203,8 +197,7 @@ extension v0.EntityState {
       magneticHugs: coreMove.magnet.map { v0.MagneticHugsComponent(hugging: $0, huggedBy: []) },
       modelMeta: coreMove.modelMeta,
       magneticField: coreMove.magneticField,
-      opacity: coreMove.opacity,
-      relativeTo: coreMove.relativeTo
+      opacity: coreMove.opacity
     )
   }
 }
@@ -225,7 +218,6 @@ extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
     if let delay { arr.append("delay: \(delay)") }
     if let sound { arr.append("sound: \(sound)") }
     if let huggers { arr.append("huggers: \(huggers)") }
-    if let relativeTo { arr.append("relativeTo: \(relativeTo)") }
     return arr.join(", ") + ")"
   }
   public var debugDescription: String { return description }

@@ -29,12 +29,6 @@ public enum v0 {
     /// Vellum doesn't resolve it — the caller (e.g. Magisterium) maps it
     /// to the actual destroyer entity at animation time.
     case originalCloner
-    /// Sentinel meaning "relative to this entity's parent in the hierarchy".
-    /// Used in `CoreMove.relativeTo` and `EntityState.relativeTo` to indicate
-    /// that positions/orientations are stored in parent-local space rather than
-    /// root space. Vellum doesn't resolve it — the caller maps it to the actual
-    /// parent entity at animation time.
-    case parent
 
     // ╔═══════════════════════════╗
     // ║ CUSTOM STRING CONVERTABLE ║
@@ -48,7 +42,6 @@ public enum v0 {
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
       case .originalCloner: return "EID.originalCloner"
-      case .parent: return "EID.parent"
       }
     }
 
@@ -64,14 +57,12 @@ public enum v0 {
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
       case .originalCloner: return "EID.originalCloner"
-      case .parent: return "EID.parent"
       }
     }
 
     public static func fromStringValue(_ stringRepresentation: String) throws -> EID {
       if stringRepresentation == "EID.none" { return EID.none }
       if stringRepresentation == "EID.originalCloner" { return EID.originalCloner }
-      if stringRepresentation == "EID.parent" { return EID.parent }
       if stringRepresentation.starts(with: "EID.clone(") {
         let trimmed = String(stringRepresentation.dropFirst("EID.clone(".count).dropLast())
         let components = trimmed.split(":")
@@ -329,10 +320,6 @@ public enum v0 {
     public var magneticField: MagneticFieldPartial?
     /// nil represents no opacity override (i.e. fully opaque / 1.0).
     public var opacity: Float?
-    /// The coordinate space for position/orientation values.
-    /// - `nil` (default): root-space — positions and orientations are relative to rootEntity.
-    /// - `.parent`: parent-local space — values are relative to the entity's parent in the hierarchy.
-    public var relativeTo: EID?
 
     public init(
       eid: EID,
@@ -343,8 +330,7 @@ public enum v0 {
       magneticHugs: MagneticHugsComponent? = nil,
       modelMeta: ModelMetaComponent? = nil,
       magneticField: MagneticFieldPartial? = nil,
-      opacity: Float? = nil,
-      relativeTo: EID? = nil
+      opacity: Float? = nil
     ) {
       self.eid = eid
       self.position = position
@@ -355,7 +341,6 @@ public enum v0 {
       self.modelMeta = modelMeta
       self.magneticField = magneticField
       self.opacity = opacity
-      self.relativeTo = relativeTo
     }
 
     // ╔═════════╗
@@ -364,7 +349,7 @@ public enum v0 {
 
     enum CodingKeys: String, CodingKey {
       case eid, position, orientation, scale, physicsMode, magneticHugs, modelMeta, magneticField,
-        opacity, relativeTo
+        opacity
     }
 
     public init(from decoder: Decoder) throws {
@@ -387,7 +372,6 @@ public enum v0 {
         forKey: .magneticField
       )
       self.opacity = try container.decodeIfPresent(Float.self, forKey: .opacity)
-      self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -405,7 +389,6 @@ public enum v0 {
       try container.encodeIfPresent(self.modelMeta, forKey: .modelMeta)
       try container.encodeIfPresent(self.magneticField, forKey: .magneticField)
       try container.encodeIfPresent(self.opacity, forKey: .opacity)
-      try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
     }
   }
 
@@ -450,11 +433,6 @@ public enum v0 {
     /// When present, the pipeline expands this into individual per-hugger CoreMoves
     /// (each targeting the magnet with a `huggerIndex` derived from their array position).
     public var huggers: [EID]?
-    /// The coordinate space for position/orientation values.
-    /// - `nil` (default): root-space — positions and orientations are relative to rootEntity.
-    /// - `.parent`: parent-local space — values are relative to the entity's parent in the hierarchy.
-    /// All existing moves with `relativeTo == nil` behave identically (backwards-compatible).
-    public var relativeTo: EID?
     public init(
       eid: EID,
       target: CoreMoveTarget = .unset,
@@ -468,7 +446,6 @@ public enum v0 {
       force: SIMD3<Float>? = nil,
       sound: SoundGroup? = nil,
       huggers: [EID]? = nil,
-      relativeTo: EID? = nil,
     ) {
       self.eid = eid
       self.orientation = orientation
@@ -481,7 +458,6 @@ public enum v0 {
       self.force = force
       self.sound = sound
       self.huggers = huggers
-      self.relativeTo = relativeTo
       switch target {
       case .position(let position):
         self.position = position
@@ -501,7 +477,7 @@ public enum v0 {
 
     public enum CodingKeys: String, CodingKey {
       case eid, magnet, position, orientation, scale, opacity, modelMeta, magneticField, duration,
-        delay, force, sound, huggers, relativeTo
+        delay, force, sound, huggers
     }
 
     public init(from decoder: Decoder) throws {
@@ -525,7 +501,6 @@ public enum v0 {
       self.force = try SIMD3FloatCodable.decodeIfPresent(from: container, forKey: .force)
       self.sound = try container.decodeIfPresent(SoundGroup.self, forKey: .sound)
       self.huggers = try container.decodeIfPresent([EID].self, forKey: .huggers)
-      self.relativeTo = try container.decodeIfPresent(EID.self, forKey: .relativeTo)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -547,7 +522,6 @@ public enum v0 {
       try SIMD3FloatCodable.encodeIfPresent(self.force, to: &container, forKey: .force)
       try container.encodeIfPresent(self.sound, forKey: .sound)
       try container.encodeIfPresent(self.huggers, forKey: .huggers)
-      try container.encodeIfPresent(self.relativeTo, forKey: .relativeTo)
     }
   }
 

@@ -29,18 +29,12 @@ public enum MoveHistoryHelpers {
       var modelMeta: v0.ModelMetaComponent? = nil
       var magneticField: v0.MagneticFieldPartial? = nil
       var huggers: [v0.EID]? = nil
-      /// Tracks the coordinate space of the found position/orientation. Set from the same
-      /// CoreMove that provided the position (or magnet), so the values and their space stay paired.
-      var relativeTo: v0.EID? = nil
 
       mutating func updateMatches(coreMove: v0.CoreMove) {
         if coreMove.eid != targetEid { return }
         if self.position == nil && self.magnet == nil {
           self.position = coreMove.position
           self.magnet = coreMove.magnet
-          // Capture relativeTo from the same move that provided the spatial target,
-          // so position values and their coordinate space stay paired.
-          self.relativeTo = coreMove.relativeTo
         }
         if self.orientation == nil { self.orientation = coreMove.orientation }
         if self.scale == nil { self.scale = coreMove.scale }
@@ -77,16 +71,11 @@ public enum MoveHistoryHelpers {
       if found.position == nil && found.magnet == nil {
         if let hugs = preset.magneticHugs, let magnet = hugs.hugging {
           found.magnet = magnet
-          // Magnet moves are resolved in root-space by the animation pipeline — the stacking
-          // position is computed from the magnet's root-space position, not from a stored coordinate.
-          // Explicitly nil so the relativeTo from the preset (which may be .parent for entities
-          // that were nested before reparenting) doesn't leak into the returned CoreMove.
-          found.relativeTo = nil
         } else {
+          // The preset position is in whatever coordinate space the entity lives in (parent-local
+          // for nested entities, root-space otherwise). That space is no longer stored — it's
+          // derived live from the entity's `ParentLocalComponent` marker at apply time.
           found.position = preset.position
-          // Keep position and relativeTo paired — the preset position is in whatever
-          // coordinate space the preset was captured in (e.g. .parent for nested entities).
-          found.relativeTo = preset.relativeTo
         }
       }
       if found.orientation == nil { found.orientation = preset.orientation }
@@ -116,8 +105,7 @@ public enum MoveHistoryHelpers {
       opacity: found.opacity,
       modelMeta: found.modelMeta,
       magneticField: found.magneticField,
-      huggers: found.huggers,
-      relativeTo: found.relativeTo
+      huggers: found.huggers
     )
   }
 
