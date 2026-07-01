@@ -214,6 +214,23 @@ extension v0.MoveHistory {
       )
     }
 
+    // A ClonableGroup child clone (e.g. a PlayerSet magnet) never authors its own move — it's spawned
+    // nested when its container clone is — so `findPreviousCoreMove` falls back to `.magnet(.originalCloner)`
+    // with no transform. Its authoritative resting pose is its template child's parent-relative transform,
+    // captured in `presetDic` under `EID.other(<sameChildName>)`. Inherit that (mirroring what
+    // `resolveOriginalCloner` does live, but from pure preset data) so the child materialises with the
+    // right parent-local pose instead of pose-less — otherwise the canonical-load default fills identity
+    // and wipes the template-authored orientation.
+    for eid in candidateEids where eid.isGroupClone && resolved[eid]?.magnet == .originalCloner {
+      guard let template = presetDic[v0.EID.other(name: eid.name)] else { continue }
+      var coreMove = resolved[eid]!
+      coreMove.magnet = nil
+      coreMove.position = coreMove.position ?? template.position
+      coreMove.orientation = coreMove.orientation ?? template.orientation
+      coreMove.scale = coreMove.scale ?? template.scale
+      resolved[eid] = coreMove
+    }
+
     /// True when `eid`'s resolved magnetic field is a destroyer. `findPreviousCoreMove` already
     /// folds the preset's `magneticField` into the resolved CoreMove, so checking `resolved` is
     /// sufficient — and every magnet referenced as a target is a `candidateEids` member, hence
