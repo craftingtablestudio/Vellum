@@ -13,14 +13,19 @@ public enum v0 {
   ///
   /// - `.other(name)`: a static, unique entity. Name alone is sufficient because only one instance
   ///   ever exists. Should have an entry in `initialStateDic` so its state can be restored on undo.
-  /// - `.clone(name, cloneId)`: a dynamically created entity. Multiple copies of the same template
-  ///   can exist simultaneously (e.g. black stones on a Go board), so a UUID distinguishes
-  ///   instances. `name` is the template; `cloneId` is the specific instance.
+  /// - `.clone(name, cloneId)`: a dynamically created entity minted by an `EntityCloner`. Multiple
+  ///   copies of the same template can exist simultaneously (e.g. black stones on a Go board), so a
+  ///   UUID distinguishes instances. `name` is the template; `cloneId` is the specific instance.
+  /// - `.clonableGroupChild(group, child, cloneId)`: a child of a `ClonableGroupComponent` container.
+  ///   It rides its container's spawn (sharing the container's `cloneId`) and, on undo, rests at its
+  ///   template child's authored pose rather than returning to a cloner. `name` reconstructs the
+  ///   scene-side `"group__groupclone__child"` convention so entity lookups keep working.
   /// - `.none`: absence of an entity.
   public enum EID: Codable, Equatable, Hashable, Sendable, CustomStringConvertible,
     CustomDebugStringConvertible
   {
     case clone(name: String, cloneId: UUID)
+    case clonableGroupChild(group: String, child: String, cloneId: UUID)
     case other(name: String)
     case none
 
@@ -33,6 +38,9 @@ public enum v0 {
       case .clone(let name, let uuid):
         let shortUUID = "\(uuid.uuidString.prefix(3))...\(uuid.uuidString.suffix(3))"
         return "EID.clone(\(name):\(shortUUID))"
+      case .clonableGroupChild(let group, let child, let uuid):
+        let shortUUID = "\(uuid.uuidString.prefix(3))...\(uuid.uuidString.suffix(3))"
+        return "EID.clonableGroupChild(\(group)\(GROUP_CLONE_DIVIDER)\(child):\(shortUUID))"
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
       }
@@ -47,6 +55,8 @@ public enum v0 {
     public var toStringValue: String {
       switch self {
       case .clone(let name, let uuid): return "EID.clone(\(name):\(uuid))"
+      case .clonableGroupChild(let group, let child, let uuid):
+        return "EID.clonableGroupChild(\(group)\(GROUP_CLONE_DIVIDER)\(child):\(uuid))"
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
       }
@@ -54,6 +64,20 @@ public enum v0 {
 
     public static func fromStringValue(_ stringRepresentation: String) throws -> EID {
       if stringRepresentation == "EID.none" { return EID.none }
+      if stringRepresentation.starts(with: "EID.clonableGroupChild(") {
+        let trimmed = String(
+          stringRepresentation.dropFirst("EID.clonableGroupChild(".count).dropLast()
+        )
+        let components = trimmed.split(":")
+        guard components.count == 2, let fullName = components.at(0),
+          let cloneIdString = components.at(1), let cloneId = UUID(uuidString: cloneIdString)
+        else { throw EIDCustomDecodingError.BadClone }
+        let parts = fullName.components(separatedBy: GROUP_CLONE_DIVIDER)
+        guard parts.count == 2, let group = parts.first, let child = parts.last else {
+          throw EIDCustomDecodingError.BadClone
+        }
+        return .clonableGroupChild(group: group, child: child, cloneId: cloneId)
+      }
       if stringRepresentation.starts(with: "EID.clone(") {
         let trimmed = String(stringRepresentation.dropFirst("EID.clone(".count).dropLast())
         let components = trimmed.split(":")

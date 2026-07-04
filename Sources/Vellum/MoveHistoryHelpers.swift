@@ -127,7 +127,7 @@ public enum MoveHistoryHelpers {
     // A standalone clone's baseline is its cloner: with no earlier target anywhere it returns to
     // its original cloner, and an orientation it never authored is the one it spawned with —
     // mirroring how the preset/template fills above treat their baselines.
-    if targetEid.isClone, let clonePreset = clonePresetDic[targetEid.name] {
+    if targetEid.isPureClone, let clonePreset = clonePresetDic[targetEid.name] {
       if found.position == nil && found.magnet == nil {
         found.magnet = clonePreset.originalClonerEid
       }
@@ -140,7 +140,8 @@ public enum MoveHistoryHelpers {
     let knownToPresets =
       presetDic[targetEid] != nil
       || targetEid.groupCloneTemplateEID.flatMap { presetDic[$0] } != nil
-    if targetEid.isClone && found.position == nil && found.magnet == nil && !knownToPresets {
+    if targetEid.cloneId() != nil && found.position == nil && found.magnet == nil && !knownToPresets
+    {
       return v0.CoreMove(eid: targetEid, opacity: 0, huggers: found.huggers)
     }
 
