@@ -3,34 +3,22 @@ import Testing
 import Vellum
 
 struct EIDTests {
-  /// Average: `.originalCloner` encodes to the fixed JSON string "EID.originalCloner"
-  @Test func originalCloner_encodesToStringFormat() throws {
-    let encoder = JSONEncoder()
-    let data = try encoder.encode(EID.originalCloner)
-    let string = String(data: data, encoding: .utf8)!
-    #expect(string == "\"EID.originalCloner\"")
+  /// `.none` encodes to the fixed JSON string "EID.none" and round-trips.
+  @Test func none_roundTripsStringFormat() throws {
+    let data = try JSONEncoder().encode(EID.none)
+    #expect(String(data: data, encoding: .utf8) == "\"EID.none\"")
+    #expect(try JSONDecoder().decode(EID.self, from: data) == .none)
   }
 
-  /// Average: the JSON string "EID.originalCloner" decodes back to `.originalCloner`
-  @Test func originalCloner_decodesFromStringFormat() throws {
-    let json = "\"EID.originalCloner\""
-    let decoder = JSONDecoder()
-    let eid = try decoder.decode(EID.self, from: json.data(using: .utf8)!)
-    #expect(eid == .originalCloner)
+  /// A group-clone child's template preset key: `.other` under the same full name.
+  @Test func groupCloneTemplateEID_mapsToOtherWithSameName() {
+    let child = EID.clone(name: "PlayerSet__groupclone__Hand", cloneId: UUID())
+    #expect(child.groupCloneTemplateEID == EID.other(name: "PlayerSet__groupclone__Hand"))
   }
 
-  /// `.originalCloner` is not treated as a clone — it is the original source
-  @Test func originalCloner_isNotClone() { #expect(EID.originalCloner.isClone == false) }
-
-  /// `.originalCloner` has an empty name, unlike regular named entities
-  @Test func originalCloner_hasEmptyName() { #expect(EID.originalCloner.name == "") }
-
-  /// `.originalCloner` has no clone ID — it was never cloned from anything
-  @Test func originalCloner_hasNoCloneId() { #expect(EID.originalCloner.cloneId() == nil) }
-
-  /// `.originalCloner` is equal to itself (reflexive equality holds)
-  @Test func originalCloner_equalsItself() { #expect(EID.originalCloner == EID.originalCloner) }
-
-  /// `.originalCloner` is a distinct value — it does not equal `.none`
-  @Test func originalCloner_notEqualToNone() { #expect(EID.originalCloner != EID.none) }
+  /// Standalone clones and `.other` entities have no template preset key.
+  @Test func groupCloneTemplateEID_nilForNonGroupClones() {
+    #expect(EID.clone(name: "GoStoneBlack", cloneId: UUID()).groupCloneTemplateEID == nil)
+    #expect(EID.other(name: "PlayerSet__groupclone__Hand").groupCloneTemplateEID == nil)
+  }
 }

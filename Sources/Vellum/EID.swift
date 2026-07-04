@@ -8,7 +8,6 @@ extension v0.EID {
     case .clone(let name, _): return name
     case .other(let name): return name
     case .none: return ""
-    case .originalCloner: return ""
     }
   }
 
@@ -42,5 +41,14 @@ extension v0.EID {
   public var groupCloneChildName: String? {
     guard isGroupClone else { return nil }
     return name.components(separatedBy: GROUP_CLONE_DIVIDER).last
+  }
+
+  /// The preset key of a group-clone child's TEMPLATE child. Template children are renamed at
+  /// scene load to `"GroupName__groupclone__ChildName"` and registered under `.other`, so the
+  /// template's preset entry shares the clone child's full name. Its parent-local pose is the
+  /// child's authored resting spot. Returns `nil` for non-group-clone EIDs.
+  public var groupCloneTemplateEID: v0.EID? {
+    guard isGroupClone else { return nil }
+    return .other(name: name)
   }
 }

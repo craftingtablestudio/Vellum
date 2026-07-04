@@ -2,20 +2,42 @@
   import simd
 #endif
 
+/// A clone's runtime baseline: the cloner it returns to when history holds no earlier state for
+/// it, and the orientation it spawned with. Not persisted — the caller (Magisterium) derives it
+/// from live cloner state and passes it alongside `presetDic`. What happens on arrival (e.g. a
+/// `.destroy` magnet recycling the clone) is the magnet's own property, not Vellum's concern.
+public struct ClonePreset: Sendable, Equatable {
+  public let originalClonerEid: v0.EID
+  public let initialOrientation: simd_quatf?
+
+  public init(originalClonerEid: v0.EID, initialOrientation: simd_quatf? = nil) {
+    self.originalClonerEid = originalClonerEid
+    self.initialOrientation = initialOrientation
+  }
+}
+
 public enum MoveHistoryHelpers {
   /// Finds the previous `CoreMove` for an `EID` by searching through the given moves in reverse.
   ///
   /// Collects the last known position/magnet, orientation, scale, opacity, modelMeta, and
-  /// huggers — combining partial results if needed. After exhausting all history, fills
-  /// remaining nil fields from `presetDic`. For clones not in `presetDic` with no target found,
-  /// returns a CoreMove targeting `.magnet(.originalCloner)`.
+  /// huggers — combining partial results if needed. After exhausting all history, fills the
+  /// remaining nil fields from the entity's baseline:
+  /// - a preset entity → its own `presetDic` entry
+  /// - a ClonableGroup child → POSE fields from its template child's preset entry
+  ///   (`groupCloneTemplateEID`) — its authored resting spot inside the container
+  /// - a standalone clone → its `clonePresetDic` entry: target its original cloner, oriented as
+  ///   it spawned. A clone with no baseline anywhere fades out in place (`opacity: 0`).
+  ///
+  /// The baselines run in that order and each fills only still-nil fields, so an earlier source
+  /// that supplied a field wins over a later one.
   ///
   /// For magnet EIDs that have a `huggers` snapshot in history, the snapshot is collected and
   /// returned as a `huggers` field on the CoreMove.
   public static func findPreviousCoreMove(
     search targetEid: v0.EID,
     searchThrough: [v0.Move],
-    presetDic: [v0.EID: v0.EntityState] = [:]
+    presetDic: [v0.EID: v0.EntityState] = [:],
+    clonePresetDic: [String: ClonePreset] = [:]
   ) -> v0.CoreMove {
     struct FoundMoves {
       let targetEid: v0.EID
@@ -92,10 +114,40 @@ public enum MoveHistoryHelpers {
       if found.huggers == nil { found.huggers = preset.magneticHugs?.huggedBy }
     }
 
+    // A ClonableGroup child is keyed `.clone` but its authored resting pose lives on its TEMPLATE
+    // child's preset entry (`.other`, same full name). Fill POSE fields only: templates are
+    // invisible, so opacity/modelMeta must not be inherited. A child that resolved to a real
+    // magnet keeps it — its pose is owned by that magnet.
+    if let templateEid = targetEid.groupCloneTemplateEID, let template = presetDic[templateEid] {
+      if found.position == nil && found.magnet == nil { found.position = template.position }
+      if found.orientation == nil { found.orientation = template.orientation }
+      if found.scale == nil { found.scale = template.scale }
+    }
+
+    // A standalone clone's baseline is its cloner: with no earlier target anywhere it returns to
+    // its original cloner, and an orientation it never authored is the one it spawned with —
+    // mirroring how the preset/template fills above treat their baselines.
+    if targetEid.isClone, let clonePreset = clonePresetDic[targetEid.name] {
+      if found.position == nil && found.magnet == nil {
+        found.magnet = clonePreset.originalClonerEid
+      }
+      if found.orientation == nil { found.orientation = clonePreset.initialOrientation }
+    }
+
+    // A clone COMPLETELY unknown — no history, no preset/template entry, no cloner — has nowhere
+    // to return to: fade it out in place. A clone that IS known but positionless (e.g. a spawned
+    // container whose preset entry deliberately drops its position) simply rests where it is.
+    let knownToPresets =
+      presetDic[targetEid] != nil
+      || targetEid.groupCloneTemplateEID.flatMap { presetDic[$0] } != nil
+    if targetEid.isClone && found.position == nil && found.magnet == nil && !knownToPresets {
+      return v0.CoreMove(eid: targetEid, opacity: 0, huggers: found.huggers)
+    }
+
     let target: v0.CoreMoveTarget =
       if let magnet = found.magnet { .magnet(magnet) } else if let position = found.position {
         .position(position)
-      } else if targetEid.isClone { .magnet(.originalCloner) } else { .unset }
+      } else { .unset }
 
     return v0.CoreMove(
       eid: targetEid,
@@ -119,7 +171,8 @@ public enum MoveHistoryHelpers {
   static func moveToPreviousCoreMoves(
     _ moveToUndo: v0.Move,
     searchThrough: [v0.Move],
-    presetDic: [v0.EID: v0.EntityState] = [:]
+    presetDic: [v0.EID: v0.EntityState] = [:],
+    clonePresetDic: [String: ClonePreset] = [:]
   ) -> [[v0.CoreMove]] {
     var result: [[v0.CoreMove]] = []
     var chunksToUndo: [[v0.CoreMove]] = moveToUndo.chunks
@@ -155,7 +208,8 @@ public enum MoveHistoryHelpers {
           let previousSnapshot = Self.findPreviousCoreMove(
             search: coreMoveToUndo.eid,
             searchThrough: searchThrough,
-            presetDic: presetDic
+            presetDic: presetDic,
+            clonePresetDic: clonePresetDic
           )
           chunkUndone.append(
             v0.CoreMove(eid: coreMoveToUndo.eid, huggers: previousSnapshot.huggers ?? [])
@@ -171,7 +225,8 @@ public enum MoveHistoryHelpers {
           ?? Self.findPreviousCoreMove(
             search: coreMoveToUndo.eid,
             searchThrough: searchThrough,
-            presetDic: presetDic
+            presetDic: presetDic,
+            clonePresetDic: clonePresetDic
           )
         if let d = coreMoveToUndo.duration { prev.duration = d }
         if let s = coreMoveToUndo.sound { prev.sound = s }

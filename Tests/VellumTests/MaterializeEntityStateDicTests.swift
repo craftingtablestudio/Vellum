@@ -19,6 +19,18 @@ struct MaterializeEntityStateDicTests {
     #expect(dic[EID.other(name: "WP1")]?.magneticHugs?.hugging == EID.other(name: "A2"))
   }
 
+  /// Regression: a clone that IS in `presetDic` but positionless (a setup-spawned container —
+  /// `initPresetDic` drops positions of non-interactible root-space entities) must NOT be treated
+  /// as unknown and faded out. It rests where the scene has it: no pose, and crucially no
+  /// `opacity: 0` (the bug faded PlayerSet out right after its setup fade-in).
+  @Test func positionlessCloneInPreset_isNotFadedOut() {
+    let container = EID.clone(name: "PlayerSet", cloneId: mock.stableUUID("PS1"))
+    let presetDic = [container: EntityState(eid: container)]
+    let dic = MoveHistory().materializeEntityStateDic(presetDic: presetDic)
+    #expect(dic[container] != nil, "Known clone must materialise")
+    #expect(dic[container]?.opacity == nil, "Known-but-positionless clone must not fade out")
+  }
+
   /// A single magnet move re-targets the moved entity while everything else stays on preset.
   @Test func magnetMove_updatesHuggingMagnet() throws {
     var history = MoveHistory()

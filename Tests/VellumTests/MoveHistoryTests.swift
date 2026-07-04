@@ -357,7 +357,9 @@ struct MoveToPreviousCoreMovesTests {
       default: []
       }
 
-    #expect(reverseMoves == [Move([[mock.coreMove(eid: "BP1", target: .magnet("A2"), huggers: [])]])])
+    #expect(
+      reverseMoves == [Move([[mock.coreMove(eid: "BP1", target: .magnet("A2"), huggers: [])]])]
+    )
   }
 
   /// Complex: undoing a subsequent move of a captured piece reverts it to the position it was moved to on capture
@@ -388,13 +390,15 @@ struct MoveToPreviousCoreMovesTests {
       }
 
     #expect(
-      reverseMoves == [Move([[mock.coreMove(eid: "WR1", target: .position(ROOK_POSITION), huggers: [])]])]
+      reverseMoves == [
+        Move([[mock.coreMove(eid: "WR1", target: .position(ROOK_POSITION), huggers: [])]])
+      ]
     )
   }
 
   /// Complex: undoing a corner Go capture — white stone clones return to their board positions;
-  /// the freshly placed black stone (a clone with no prior history) returns to `.originalCloner` (its bowl)
-  /// captures undo first (reverse chunk order), then the black stone placement
+  /// the freshly placed black stone (a clone with no prior history) returns to its original cloner
+  /// (its bowl, via `clonePresetDic`). Captures undo first (reverse chunk order), then the placement.
   @Test func go_revertCaptureMove_stonesAreClones() {
     let history = MoveHistory(moves: [
       // corner setup: 3 white stones form a group at the bottom-left corner (A1, B1, A2),
@@ -427,7 +431,8 @@ struct MoveToPreviousCoreMovesTests {
     let browseResult = history.browseHistory(
       action: .undo,
       animatingTowards: nil,
-      currentlyAnimating: nil
+      currentlyAnimating: nil,
+      clonePresetDic: ["black1": ClonePreset(originalClonerEid: EID.other(name: "BowlBlack"))]
     )
     let reverseMoves: [Move] =
       switch browseResult {
@@ -444,7 +449,7 @@ struct MoveToPreviousCoreMovesTests {
             mock.coreMove(eidClone: "white1", target: .magnet("A1")),  // returns to corner
           ],
           [
-            mock.coreMove(eidClone: "black1", target: .originalCloner)  // fresh clone — returns to its bowl
+            mock.coreMove(eidClone: "black1", target: .magnet("BowlBlack"))  // fresh clone — returns to its bowl
           ],
         ])
       ]
@@ -479,7 +484,8 @@ struct MoveToPreviousCoreMovesTests {
     let browseResult = history.browseHistory(
       action: .undo,
       animatingTowards: nil,
-      currentlyAnimating: nil
+      currentlyAnimating: nil,
+      clonePresetDic: ["black": ClonePreset(originalClonerEid: EID.other(name: "BowlBlack"))]
     )
     let reverseMoves: [Move] =
       switch browseResult {
@@ -494,7 +500,7 @@ struct MoveToPreviousCoreMovesTests {
             mock.coreMove(eidClone: "white3", target: .magnet("A3")),
             mock.coreMove(eidClone: "white2", target: .magnet("A2")),
             mock.coreMove(eidClone: "white1", target: .magnet("A1")),
-          ], [mock.coreMove(eidClone: "black", target: .originalCloner)],
+          ], [mock.coreMove(eidClone: "black", target: .magnet("BowlBlack"))],
         ])
       ]
     )
@@ -841,20 +847,25 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
-  /// Boundary: clone has no prior history and no preset entry — both fallback paths exhausted.
-  /// When undone, a clone that has never appeared before returns to `.originalCloner` (its source bowl).
-  @Test func go_undoCloneFirstMove_returnsOriginalCloner() {
-    // Go stones are clone entities — each new stone is cloned from a bowl.
-    // A stone placed for the first time has no prior position in history and no entry in presetDic,
-    // so the reverse move uses `.originalCloner` as the target, meaning "send it back to its source".
+  /// Boundary: clone has no prior history and no preset entry — its baseline comes from
+  /// `clonePresetDic`: undoing its first move sends it back to its original cloner (the bowl),
+  /// oriented as it spawned.
+  @Test func go_undoCloneFirstMove_returnsToItsCloner() {
     let history = MoveHistory(moves: [
       Move([[mock.coreMove(eidClone: "black", target: .magnet("D4"))]])
     ])
+    let spawnOrientation = simd_quatf(angle: .pi / 2, axis: [0, 1, 0])
 
     let browseResult = history.browseHistory(
       action: .undo,
       animatingTowards: nil,
-      currentlyAnimating: nil  // no presetDic — clone has no known initial position
+      currentlyAnimating: nil,
+      clonePresetDic: [
+        "black": ClonePreset(
+          originalClonerEid: EID.other(name: "BowlBlack"),
+          initialOrientation: spawnOrientation
+        )
+      ]
     )
     let reverseMoves: [Move] =
       switch browseResult {
@@ -864,10 +875,38 @@ struct MoveToPreviousCoreMovesTests {
 
     #expect(
       reverseMoves == [
-        // We expect the Go Stone to move back to it's original cloner (the Go Stone Bowl)
-        Move([[mock.coreMove(eidClone: "black", target: .originalCloner)]])
+        Move([
+          [
+            mock.coreMove(
+              eidClone: "black",
+              target: .magnet("BowlBlack"),
+              orientation: spawnOrientation
+            )
+          ]
+        ])
       ]
     )
+  }
+
+  /// Boundary: clone has no baseline ANYWHERE — no history, no preset entry, no clonePresetDic
+  /// entry. It has nowhere to return to, so the reverse move fades it out in place.
+  @Test func go_undoCloneFirstMove_noClonePreset_fadesOut() {
+    let history = MoveHistory(moves: [
+      Move([[mock.coreMove(eidClone: "black", target: .magnet("D4"))]])
+    ])
+
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil
+    )
+    let reverseMoves: [Move] =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.map(\.move)
+      default: []
+      }
+
+    #expect(reverseMoves == [Move([[mock.coreMove(eidClone: "black", opacity: 0)]])])
   }
 
   /// Complex: undoing an opacity change correctly combines position from one history entry and opacity from another
@@ -927,10 +966,7 @@ struct MoveToPreviousCoreMovesTests {
 
     let presetDic: [EID: EntityState] = [
       M: EntityState(eid: M, position: [0, 0, 0], magneticField: INITIAL_FIELD),
-      Card: EntityState(
-        eid: Card,
-        magneticHugs: MagneticHugsComponent(hugging: M, huggedBy: [])
-      ),
+      Card: EntityState(eid: Card, magneticHugs: MagneticHugsComponent(hugging: M, huggedBy: [])),
     ]
 
     // Simulates what withSideEffects produces when a huggers snapshot and a magneticField

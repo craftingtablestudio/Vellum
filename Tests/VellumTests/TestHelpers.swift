@@ -44,7 +44,7 @@ let CHESS_PRESET_DIC: [EID: EntityState] = {
   ])
 }()
 
-enum MockTarget { case magnet(String), originalCloner, position(SIMD3<Float>), unset }
+enum MockTarget { case magnet(String), position(SIMD3<Float>), unset }
 
 enum mock {
   static func coreMove(
@@ -58,7 +58,6 @@ enum mock {
     let target =
       switch target {
       case .magnet(let magnetEid): CoreMoveTarget.magnet(EID.other(name: magnetEid))
-      case .originalCloner: CoreMoveTarget.magnet(.originalCloner)
       case .position(let position): CoreMoveTarget.position(position)
       case .unset: CoreMoveTarget.unset
       }
@@ -82,7 +81,6 @@ enum mock {
     let target =
       switch target {
       case .magnet(let magnetEid): CoreMoveTarget.magnet(EID.other(name: magnetEid))
-      case .originalCloner: CoreMoveTarget.magnet(.originalCloner)
       case .position(let position): CoreMoveTarget.position(position)
       case .unset: CoreMoveTarget.unset
       }

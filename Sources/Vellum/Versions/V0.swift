@@ -17,18 +17,12 @@ public enum v0 {
   ///   can exist simultaneously (e.g. black stones on a Go board), so a UUID distinguishes
   ///   instances. `name` is the template; `cloneId` is the specific instance.
   /// - `.none`: absence of an entity.
-  /// - `.originalCloner`: sentinel meaning "return this clone to its original cloner". Vellum
-  ///   doesn't resolve it — the caller maps it to the actual destroyer entity at animation time.
   public enum EID: Codable, Equatable, Hashable, Sendable, CustomStringConvertible,
     CustomDebugStringConvertible
   {
     case clone(name: String, cloneId: UUID)
     case other(name: String)
     case none
-    /// Sentinel meaning "return this clone to its original cloner".
-    /// Vellum doesn't resolve it — the caller (e.g. Magisterium) maps it
-    /// to the actual destroyer entity at animation time.
-    case originalCloner
 
     // ╔═══════════════════════════╗
     // ║ CUSTOM STRING CONVERTABLE ║
@@ -41,7 +35,6 @@ public enum v0 {
         return "EID.clone(\(name):\(shortUUID))"
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
-      case .originalCloner: return "EID.originalCloner"
       }
     }
 
@@ -56,13 +49,11 @@ public enum v0 {
       case .clone(let name, let uuid): return "EID.clone(\(name):\(uuid))"
       case .other(let name): return "EID.other(\(name))"
       case .none: return "EID.none"
-      case .originalCloner: return "EID.originalCloner"
       }
     }
 
     public static func fromStringValue(_ stringRepresentation: String) throws -> EID {
       if stringRepresentation == "EID.none" { return EID.none }
-      if stringRepresentation == "EID.originalCloner" { return EID.originalCloner }
       if stringRepresentation.starts(with: "EID.clone(") {
         let trimmed = String(stringRepresentation.dropFirst("EID.clone(".count).dropLast())
         let components = trimmed.split(":")

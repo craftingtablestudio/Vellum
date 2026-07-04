@@ -191,15 +191,13 @@ extension v0.MoveHistory {
     // snapshot (so it already shows up as `coreMove.eid`); including the target defensively keeps
     // the result self-consistent if a future plugin adds a magnet referenced only as a target —
     // otherwise a hugger would point at a magnet missing from the dic (violating `validateEntityDic`
-    // rule 5). `.none` / `.originalCloner` are not real entities and are skipped.
+    // rule 5). `.none` is not a real entity and is skipped.
     var candidateEids = Set(presetDic.keys)
     for move in playedMoves {
       for chunk in move.chunks {
         for coreMove in chunk where coreMove.eid != v0.EID.none {
           candidateEids.insert(coreMove.eid)
-          if let magnet = coreMove.magnet, magnet != .none, magnet != .originalCloner {
-            candidateEids.insert(magnet)
-          }
+          if let magnet = coreMove.magnet, magnet != .none { candidateEids.insert(magnet) }
         }
       }
     }
@@ -214,30 +212,13 @@ extension v0.MoveHistory {
       )
     }
 
-    // A ClonableGroup child clone (e.g. a PlayerSet magnet) never authors its own move — it's spawned
-    // nested when its container clone is — so `findPreviousCoreMove` falls back to `.magnet(.originalCloner)`
-    // with no transform. Its authoritative resting pose is its template child's parent-relative transform,
-    // captured in `presetDic` under `EID.other(<sameChildName>)`. Inherit that (mirroring what
-    // `resolveOriginalCloner` does live, but from pure preset data) so the child materialises with the
-    // right parent-local pose instead of pose-less — otherwise the canonical-load default fills identity
-    // and wipes the template-authored orientation.
-    for eid in candidateEids where eid.isGroupClone && resolved[eid]?.magnet == .originalCloner {
-      guard let template = presetDic[v0.EID.other(name: eid.name)] else { continue }
-      var coreMove = resolved[eid]!
-      coreMove.magnet = nil
-      coreMove.position = coreMove.position ?? template.position
-      coreMove.orientation = coreMove.orientation ?? template.orientation
-      coreMove.scale = coreMove.scale ?? template.scale
-      resolved[eid] = coreMove
-    }
-
-    /// True when `eid`'s resolved magnetic field is a destroyer. `findPreviousCoreMove` already
-    /// folds the preset's `magneticField` into the resolved CoreMove, so checking `resolved` is
-    /// sufficient — and every magnet referenced as a target is a `candidateEids` member, hence
-    /// always present in `resolved`.
+    /// Read from `resolved` (not the preset) because magnetic fields are mutable via moves.
+    /// Every referenced magnet is a candidate, so it's always present in `resolved`.
     func isDestroyer(_ eid: v0.EID) -> Bool { resolved[eid]?.magneticField?.hugEffect == .destroy }
 
-    // Entities whose final resting magnet destroys them are gone from the materialised scene.
+    // Destruction is implicit in the ledger: an entity whose last move landed on a destroy magnet
+    // (e.g. a captured Go stone on a bowl) was deleted from the live scene. Drop it here too —
+    // otherwise reopening would resurrect it.
     let destroyed = Set(
       candidateEids.filter { eid in
         if let magnet = resolved[eid]?.magnet { return isDestroyer(magnet) }
@@ -245,20 +226,11 @@ extension v0.MoveHistory {
       }
     )
 
-    // The authoritative `hugging` relationship per surviving entity. `huggedBy` is reconciled
-    // against THIS map below so the two stay bidirectionally consistent — a stale `huggers`
-    // snapshot can't leave a magnet claiming a hugger that has since moved (or been destroyed).
-    //
-    // `.originalCloner` / `.none` are NOT real magnets: `findPreviousCoreMove` returns
-    // `.magnet(.originalCloner)` as a fallback for any clone with no position/magnet of its own —
-    // in practice a clone magnet HOST (e.g. a ClonableGroup `Hand`) that only ever appears in
-    // history via its own `huggers` snapshot. Such a host isn't hugging anything; it carries its
-    // huggers below. Treating the sentinel as a hug would point it at a non-existent entity.
+    // Authoritative `hugging` per survivor. `huggedBy` below is reconciled against this map so
+    // hugs stay bidirectional and never reference destroyed entities.
     var huggingByEid: [v0.EID: v0.EID] = [:]
     for eid in candidateEids where !destroyed.contains(eid) {
-      if let magnet = resolved[eid]?.magnet, magnet != .originalCloner, magnet != .none,
-        !destroyed.contains(magnet)
-      {
+      if let magnet = resolved[eid]?.magnet, magnet != .none, !destroyed.contains(magnet) {
         huggingByEid[eid] = magnet
       }
     }
@@ -453,13 +425,17 @@ extension v0.MoveHistory {
   /// 1. Immediately save `animatingTowardsMoveNr` to the history.
   /// 2. After each animation completes, save the new `moveNr`.
   ///
-  /// - Parameter presetDic: Initial entity states used to resolve undo moves eagerly.
-  ///   Clones not in `presetDic` with no target in history get `.magnet(.originalCloner)`.
+  /// - Parameter presetDic: Initial entity states used to resolve undo moves eagerly (a
+  ///   ClonableGroup child resolves via its template's preset entry).
+  /// - Parameter clonePresetDic: Runtime clone baselines (keyed by clone name). A standalone
+  ///   clone with no target anywhere in history returns to its `originalClonerEid`; with no
+  ///   entry here either, it fades out in place (`opacity: 0`).
   public func browseHistory(
     action: BrowseAction,
     animatingTowards: ActualMoveNr?,
     currentlyAnimating: ActualMoveNr?,
-    presetDic: [v0.EID: v0.EntityState] = [:]
+    presetDic: [v0.EID: v0.EntityState] = [:],
+    clonePresetDic: [String: ClonePreset] = [:]
   ) -> BrowseResult {
     if DEBUGGING_VELLUM { print("👀 [browseHistory]", action) }
 
@@ -512,7 +488,8 @@ extension v0.MoveHistory {
         let chunks = MoveHistoryHelpers.moveToPreviousCoreMoves(
           moveToUndo,
           searchThrough: movesToSearchThrough,
-          presetDic: presetDic
+          presetDic: presetDic,
+          clonePresetDic: clonePresetDic
         )
         let moveToUndo = v0.Move(chunks)
         let oldMoveNr = ActualMoveNr(clamping: originalMoveIndex + 1)
