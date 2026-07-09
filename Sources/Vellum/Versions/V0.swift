@@ -212,6 +212,14 @@ public enum v0 {
     case destroy
   }
 
+  // MARK: - FaceDirectionAlignment
+
+  public enum FaceDirectionAlignment: String, Codable, CaseIterable, Sendable {
+    case none
+    case magnet
+    case firstHugger
+  }
+
   // MARK: - MagneticFieldPartial
 
   /// Serialisable snapshot of a magnet's field configuration, used to record field
@@ -231,6 +239,7 @@ public enum v0 {
     public var forwardTo: String?
     public var overflowTo: String?
     public var yAlignmentTolerance: Float?
+    public var faceDirectionAlignment: FaceDirectionAlignment?
 
     public init(
       hugEffect: HugEffect? = nil,
@@ -240,7 +249,8 @@ public enum v0 {
       entityLimit: Int? = nil,
       forwardTo: String? = nil,
       overflowTo: String? = nil,
-      yAlignmentTolerance: Float? = nil
+      yAlignmentTolerance: Float? = nil,
+      faceDirectionAlignment: FaceDirectionAlignment? = nil
     ) {
       self.hugEffect = hugEffect
       self.fieldRadius = fieldRadius
@@ -250,6 +260,7 @@ public enum v0 {
       self.forwardTo = forwardTo
       self.overflowTo = overflowTo
       self.yAlignmentTolerance = yAlignmentTolerance
+      self.faceDirectionAlignment = faceDirectionAlignment
     }
 
     // ╔═════════╗
@@ -258,7 +269,7 @@ public enum v0 {
 
     private enum CodingKeys: String, CodingKey {
       case hugEffect, fieldRadius, stackOffset, collisionSound, entityLimit, forwardTo, overflowTo
-      case yAlignmentTolerance
+      case yAlignmentTolerance, faceDirectionAlignment
     }
 
     public init(from decoder: Decoder) throws {
@@ -277,6 +288,10 @@ public enum v0 {
         Float.self,
         forKey: .yAlignmentTolerance
       )
+      self.faceDirectionAlignment = try container.decodeIfPresent(
+        FaceDirectionAlignment.self,
+        forKey: .faceDirectionAlignment
+      )
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -289,6 +304,7 @@ public enum v0 {
       try container.encodeIfPresent(self.forwardTo, forKey: .forwardTo)
       try container.encodeIfPresent(self.overflowTo, forKey: .overflowTo)
       try container.encodeIfPresent(self.yAlignmentTolerance, forKey: .yAlignmentTolerance)
+      try container.encodeIfPresent(self.faceDirectionAlignment, forKey: .faceDirectionAlignment)
     }
 
     /// Fills in any nil fields from `other`, preserving any already-set fields.
@@ -301,6 +317,9 @@ public enum v0 {
       if self.forwardTo == nil { self.forwardTo = other.forwardTo }
       if self.overflowTo == nil { self.overflowTo = other.overflowTo }
       if self.yAlignmentTolerance == nil { self.yAlignmentTolerance = other.yAlignmentTolerance }
+      if self.faceDirectionAlignment == nil {
+        self.faceDirectionAlignment = other.faceDirectionAlignment
+      }
     }
 
     /// MagneticFieldComponent default values.
@@ -312,7 +331,8 @@ public enum v0 {
       entityLimit: -1,
       forwardTo: "",
       overflowTo: "",
-      yAlignmentTolerance: 360
+      yAlignmentTolerance: 360,
+      faceDirectionAlignment: FaceDirectionAlignment.none
     )
   }
 

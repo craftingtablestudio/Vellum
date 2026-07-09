@@ -32,14 +32,14 @@ extension v0.EID {
 
   /// A child of a `ClonableGroupComponent` container. Shares its container's `cloneId` and rides the
   /// container's spawn; on undo it rests at its template child's authored pose rather than a cloner.
-  public var isGroupClone: Bool {
+  public var isClonableGroupChild: Bool {
     if case .clonableGroupChild = self { return true }
     return false
   }
 
   /// The group name portion, e.g. `"PlayerSet"` for `.clonableGroupChild(group: "PlayerSet", …)`.
   /// Returns `nil` unless this is a group child.
-  public var groupCloneName: String? {
+  public var clonableGroupName: String? {
     if case .clonableGroupChild(let group, _, _) = self { return group }
     return nil
   }
@@ -48,8 +48,8 @@ extension v0.EID {
   /// `"group__groupclone__child"` and registered under `.other`, so the template's preset entry shares
   /// this child's full name — and its parent-local pose is the child's authored resting spot. Returns
   /// `nil` unless this is a group child.
-  public var groupCloneTemplateEID: v0.EID? {
-    guard isGroupClone else { return nil }
+  public var clonableGroupTemplateEID: v0.EID? {
+    guard isClonableGroupChild else { return nil }
     return .other(name: name)
   }
 }

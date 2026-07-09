@@ -24,7 +24,7 @@ public enum MoveHistoryHelpers {
   /// remaining nil fields from the entity's baseline:
   /// - a preset entity → its own `presetDic` entry
   /// - a ClonableGroup child → POSE fields from its template child's preset entry
-  ///   (`groupCloneTemplateEID`) — its authored resting spot inside the container
+  ///   (`clonableGroupTemplateEID`) — its authored resting spot inside the container
   /// - a standalone clone → its `clonePresetDic` entry: target its original cloner, oriented as
   ///   it spawned. A clone with no baseline anywhere fades out in place (`opacity: 0`).
   ///
@@ -118,7 +118,7 @@ public enum MoveHistoryHelpers {
     // child's preset entry (`.other`, same full name). Fill POSE fields only: templates are
     // invisible, so opacity/modelMeta must not be inherited. A child that resolved to a real
     // magnet keeps it — its pose is owned by that magnet.
-    if let templateEid = targetEid.groupCloneTemplateEID, let template = presetDic[templateEid] {
+    if let templateEid = targetEid.clonableGroupTemplateEID, let template = presetDic[templateEid] {
       if found.position == nil && found.magnet == nil { found.position = template.position }
       if found.orientation == nil { found.orientation = template.orientation }
       if found.scale == nil { found.scale = template.scale }
@@ -139,7 +139,7 @@ public enum MoveHistoryHelpers {
     // container whose preset entry deliberately drops its position) simply rests where it is.
     let knownToPresets =
       presetDic[targetEid] != nil
-      || targetEid.groupCloneTemplateEID.flatMap { presetDic[$0] } != nil
+      || targetEid.clonableGroupTemplateEID.flatMap { presetDic[$0] } != nil
     if targetEid.cloneId() != nil && found.position == nil && found.magnet == nil && !knownToPresets
     {
       return v0.CoreMove(eid: targetEid, opacity: 0, huggers: found.huggers)
@@ -251,6 +251,9 @@ public enum MoveHistoryHelpers {
           if changed.overflowTo != nil && f.overflowTo == nil { f.overflowTo = d.overflowTo }
           if changed.yAlignmentTolerance != nil && f.yAlignmentTolerance == nil {
             f.yAlignmentTolerance = d.yAlignmentTolerance
+          }
+          if changed.faceDirectionAlignment != nil && f.faceDirectionAlignment == nil {
+            f.faceDirectionAlignment = d.faceDirectionAlignment
           }
           prev.magneticField = f
         }
