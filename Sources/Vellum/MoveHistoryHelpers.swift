@@ -255,6 +255,7 @@ public enum MoveHistoryHelpers {
           if changed.faceDirectionAlignment != nil && f.faceDirectionAlignment == nil {
             f.faceDirectionAlignment = d.faceDirectionAlignment
           }
+          if changed.grabHuggers != nil && f.grabHuggers == nil { f.grabHuggers = d.grabHuggers }
           prev.magneticField = f
         }
         chunkUndone.append(prev)
