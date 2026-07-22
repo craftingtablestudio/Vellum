@@ -221,6 +221,7 @@ public enum v0 {
   }
 
   public enum GrabHuggers: String, Codable, CaseIterable, Sendable {
+    case birdView
     case individually
     case bringUpperSiblings
     case lastOrAll
