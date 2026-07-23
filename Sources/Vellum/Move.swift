@@ -121,6 +121,7 @@ extension v0.CoreMove {
     var result = self
     if other.position != nil { result.position = other.position }
     if other.magnet != nil { result.magnet = other.magnet }
+    if other.magnetOffset != nil { result.magnetOffset = other.magnetOffset }
     if other.orientation != nil { result.orientation = other.orientation }
     if other.scale != nil { result.scale = other.scale }
     if other.opacity != nil { result.opacity = other.opacity }
@@ -137,6 +138,7 @@ extension v0.CoreMove {
   /// Nils out any property that is nil in the given reference CoreMove.
   public mutating func removePropsNillIn(_ otherCoreMove: v0.CoreMove) {
     if otherCoreMove.magnet == nil { self.magnet = nil }
+    if otherCoreMove.magnetOffset == nil { self.magnetOffset = nil }
     if otherCoreMove.position == nil { self.position = nil }
     if otherCoreMove.orientation == nil { self.orientation = nil }
     if otherCoreMove.scale == nil { self.scale = nil }
@@ -156,6 +158,7 @@ extension v0.CoreMove {
     switch key {
     case .eid: m.eid = v0.EID.none
     case .magnet: m.magnet = nil
+    case .magnetOffset: m.magnetOffset = nil
     case .position: m.position = nil
     case .orientation: m.orientation = nil
     case .scale: m.scale = nil
@@ -177,6 +180,9 @@ extension v0.CoreMove {
     var errors: [String] = []
     if position != nil && magnet != nil {
       errors.append("A move can only have a `position` OR `magnet`, not both!")
+    }
+    if magnetOffset != nil && magnet == nil {
+      errors.append("A `magnetOffset` requires a `magnet` target!")
     }
     if let magnet, eid == magnet { errors.append("Cannot approach one's self in a magnet move!") }
     return errors
@@ -208,6 +214,7 @@ extension v0.CoreMove: CustomStringConvertible, CustomDebugStringConvertible {
   public var description: String {
     var arr = ["CoreMove(eid: \(eid)"]
     if let magnet { arr.append("magnet: \(magnet)") }
+    if let magnetOffset { arr.append("magnetOffset: \(magnetOffset)") }
     if let position { arr.append("position: \(position)") }
     if let orientation { arr.append("orientation: \(orientation)") }
     if let scale { arr.append("scale: \(scale)") }

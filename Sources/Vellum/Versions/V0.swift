@@ -457,6 +457,8 @@ public enum v0 {
   public struct CoreMove: Equatable, Codable, Sendable {
     public var eid: EID
     public var magnet: EID?
+    /// A magnet-local resting offset. Magnet layout decides which axes it supports.
+    public var magnetOffset: SIMD3<Float>?
     public var position: SIMD3<Float>?
     public var orientation: simd_quatf?
     public var scale: SIMD3<Float>?
@@ -485,6 +487,7 @@ public enum v0 {
     public init(
       eid: EID,
       target: CoreMoveTarget = .unset,
+      magnetOffset: SIMD3<Float>? = nil,
       orientation: simd_quatf? = nil,
       scale: SIMD3<Float>? = nil,
       opacity: Float? = nil,
@@ -497,6 +500,7 @@ public enum v0 {
       huggers: [EID]? = nil,
     ) {
       self.eid = eid
+      self.magnetOffset = magnetOffset
       self.orientation = orientation
       self.scale = scale
       self.opacity = opacity
@@ -525,14 +529,18 @@ public enum v0 {
     // ╚═════════╝
 
     public enum CodingKeys: String, CodingKey {
-      case eid, magnet, position, orientation, scale, opacity, modelMeta, magneticField, duration,
-        delay, force, sound, huggers
+      case eid, magnet, magnetOffset, position, orientation, scale, opacity, modelMeta,
+        magneticField, duration, delay, force, sound, huggers
     }
 
     public init(from decoder: Decoder) throws {
       let container = try decoder.container(keyedBy: CodingKeys.self)
       self.eid = try container.decode(EID.self, forKey: .eid)
       self.magnet = try container.decodeIfPresent(EID.self, forKey: .magnet)
+      self.magnetOffset = try SIMD3FloatCodable.decodeIfPresent(
+        from: container,
+        forKey: .magnetOffset
+      )
       self.position = try SIMD3FloatCodable.decodeIfPresent(from: container, forKey: .position)
       self.orientation = try SimdQuatfFloatCodable.decodeIfPresent(
         from: container,
@@ -556,6 +564,11 @@ public enum v0 {
       var container = encoder.container(keyedBy: CodingKeys.self)
       try container.encode(self.eid, forKey: .eid)
       try container.encodeIfPresent(self.magnet, forKey: .magnet)
+      try SIMD3FloatCodable.encodeIfPresent(
+        self.magnetOffset,
+        to: &container,
+        forKey: .magnetOffset
+      )
       try SIMD3FloatCodable.encodeIfPresent(self.position, to: &container, forKey: .position)
       try SimdQuatfFloatCodable.encodeIfPresent(
         self.orientation,
