@@ -36,7 +36,7 @@ public enum MoveHistoryHelpers {
   public static func findPreviousCoreMove(
     search targetEid: v0.EID,
     searchThrough: [v0.Move],
-    presetDic: [v0.EID: v0.EntityState] = [:],
+    presetDic: [v0.EID: v0.EntityState],
     clonePresetDic: [String: ClonePreset] = [:]
   ) -> v0.CoreMove {
     struct FoundMoves {
@@ -271,7 +271,11 @@ public enum MoveHistoryHelpers {
   private static func findInEarlierChunks(eid: v0.EID, chunks: [[v0.CoreMove]]) -> v0.CoreMove? {
     guard !chunks.isEmpty else { return nil }
     guard chunks.contains(where: { $0.contains { $0.eid == eid } }) else { return nil }
-    let found = Self.findPreviousCoreMove(search: eid, searchThrough: [v0.Move(chunks)])
+    let found = Self.findPreviousCoreMove(
+      search: eid,
+      searchThrough: [v0.Move(chunks)],
+      presetDic: [:]
+    )
     return found.hasNoTarget ? nil : found
   }
 
@@ -298,7 +302,8 @@ public enum MoveHistoryHelpers {
     var coreMoveToCompare = coreMove
     var lastPlayedCoreMove = MoveHistoryHelpers.findPreviousCoreMove(
       search: eid,
-      searchThrough: movesToCompareWith
+      searchThrough: movesToCompareWith,
+      presetDic: initialStateDic
     )
     if let initialState = initialStateDic[coreMove.eid] {
       lastPlayedCoreMove.fillInEmptyParts(with: initialState)

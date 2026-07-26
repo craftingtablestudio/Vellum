@@ -127,6 +127,44 @@ struct AppendMoveTests {
     #expect(history.moves.count == 0)
   }
 
+  /// Returning a preset clone to its starting magnet without flipping it is a no-op,
+  /// even when the history is empty and the comparison must fall back to the preset.
+  @Test func appendMove_presetCloneReturnedSameSideToStartingMagnet_isDeduplicated() throws {
+    let tower = EID.other(name: "Tower")
+    let card = EID.clone(
+      name: "Card",
+      cloneId: try #require(UUID(uuidString: "00000000-0000-0000-0000-000000000001"))
+    )
+    let yaw = simd_quatf(angle: 0.1, axis: [0, 1, 0])
+    let presetDic: [EID: EntityState] = [
+      card: EntityState(
+        eid: card,
+        magneticHugs: MagneticHugsComponent(hugging: tower, huggedBy: [])
+      ),
+      tower: EntityState(
+        eid: tower,
+        magneticHugs: MagneticHugsComponent(hugging: nil, huggedBy: [card])
+      ),
+    ]
+    let move = Move([
+      [
+        CoreMove(eid: card, target: .magnet(tower), orientation: yaw),
+        CoreMove(eid: tower, huggers: [card]),
+      ]
+    ])
+
+    var history = MoveHistory()
+    let result = try history.appendMove(
+      move,
+      initialStateDic: presetDic,
+      atIndex: nil,
+      setMoveNr: true
+    )
+
+    #expect(result == nil, "Returning the unflipped preset clone should not append a move")
+    #expect(history.moves.isEmpty)
+  }
+
   /// A huggers-only snapshot CoreMove (no position/magnet) that matches the previous snapshot
   /// SHOULD be deduplicated — nothing changed.
   @Test func appendMove_sameHuggersOrder_isDeduplicated() throws {
