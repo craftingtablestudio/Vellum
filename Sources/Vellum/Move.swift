@@ -116,6 +116,21 @@ extension v0.CoreMove {
     if huggers == nil { self.huggers = initialState.magneticHugs?.huggedBy }
   }
 
+  /// Completes a sparse CoreMove using the entity's latest resolved state.
+  mutating func fillInEmptyParts(with currentState: v0.CoreMove) {
+    if position == nil && magnet == nil {
+      position = currentState.position
+      magnet = currentState.magnet
+      magnetOffset = currentState.magnetOffset
+    }
+    if orientation == nil { orientation = currentState.orientation }
+    if scale == nil { scale = currentState.scale }
+    if opacity == nil { opacity = currentState.opacity }
+    if modelMeta == nil { modelMeta = currentState.modelMeta }
+    if magneticField == nil { magneticField = currentState.magneticField }
+    if huggers == nil { huggers = currentState.huggers }
+  }
+
   /// Returns a copy with non-nil fields from `other` applied on top of self.
   public func merging(_ other: v0.CoreMove) -> v0.CoreMove {
     var result = self

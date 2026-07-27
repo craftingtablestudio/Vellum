@@ -307,7 +307,7 @@ public enum MoveHistoryHelpers {
     )
     if let initialState = initialStateDic[coreMove.eid] {
       lastPlayedCoreMove.fillInEmptyParts(with: initialState)
-      coreMoveToCompare.fillInEmptyParts(with: initialState)
+      coreMoveToCompare.fillInEmptyParts(with: lastPlayedCoreMove)
     } else {
       lastPlayedCoreMove.removePropsNillIn(coreMoveToCompare)
     }

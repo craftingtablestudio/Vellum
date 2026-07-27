@@ -165,6 +165,61 @@ struct AppendMoveTests {
     #expect(history.moves.isEmpty)
   }
 
+  /// A tower host that moved away from its preset magnet must use its current position
+  /// when comparing the membership snapshot produced by returning its final hugger.
+  @Test func appendMove_finalHuggerReturnedToMovedHostSameSide_isDeduplicated() throws {
+    let deck = EID.other(name: "Deck")
+    let cardA = EID.other(name: "CardA")
+    let cardB = EID.other(name: "CardB")
+    let sidePosition = SIMD3<Float>(0.3, 0, 0.1)
+    let sameSideYaw = simd_quatf(angle: 0.5, axis: [0, 1, 0])
+    let presetDic: [EID: EntityState] = [
+      cardA: EntityState(
+        eid: cardA,
+        magneticHugs: MagneticHugsComponent(hugging: deck, huggedBy: [])
+      ),
+      cardB: EntityState(
+        eid: cardB,
+        magneticHugs: MagneticHugsComponent(hugging: deck, huggedBy: [])
+      ),
+      deck: EntityState(
+        eid: deck,
+        position: [0, 0, 0],
+        magneticHugs: MagneticHugsComponent(hugging: nil, huggedBy: [cardB, cardA])
+      ),
+    ]
+
+    var history = MoveHistory()
+    _ = try history.appendMove(
+      Move(CoreMove(eid: cardA, target: .position(sidePosition))),
+      initialStateDic: presetDic,
+      atIndex: nil,
+      setMoveNr: true
+    )
+    _ = try history.appendMove(
+      Move([[CoreMove(eid: cardB, target: .magnet(cardA)), CoreMove(eid: cardA, huggers: [cardB])]]
+      ),
+      initialStateDic: presetDic,
+      atIndex: nil,
+      setMoveNr: true
+    )
+
+    let result = try history.appendMove(
+      Move([
+        [
+          CoreMove(eid: cardB, target: .magnet(cardA), orientation: sameSideYaw),
+          CoreMove(eid: cardA, huggers: [cardB]),
+        ]
+      ]),
+      initialStateDic: presetDic,
+      atIndex: nil,
+      setMoveNr: true
+    )
+
+    #expect(result == nil)
+    #expect(history.moves.count == 2)
+  }
+
   /// A huggers-only snapshot CoreMove (no position/magnet) that matches the previous snapshot
   /// SHOULD be deduplicated — nothing changed.
   @Test func appendMove_sameHuggersOrder_isDeduplicated() throws {
