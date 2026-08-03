@@ -241,6 +241,8 @@ public enum v0 {
     public var fieldRadius: Float?
     /// An offset to apply to entities being stacked on this magnet.
     public var stackOffset: SIMD3<Float>?
+    /// Maximum magnet-local X/Z displacement for tower huggers, in metres.
+    public var xzAlignmentTolerance: Float?
     public var collisionSound: SoundGroup?
     public var entityLimit: Int?
     public var forwardTo: String?
@@ -253,6 +255,7 @@ public enum v0 {
       hugEffect: HugEffect? = nil,
       fieldRadius: Float? = nil,
       stackOffset: SIMD3<Float>? = nil,
+      xzAlignmentTolerance: Float? = nil,
       collisionSound: SoundGroup? = nil,
       entityLimit: Int? = nil,
       forwardTo: String? = nil,
@@ -264,6 +267,7 @@ public enum v0 {
       self.hugEffect = hugEffect
       self.fieldRadius = fieldRadius
       self.stackOffset = stackOffset
+      self.xzAlignmentTolerance = xzAlignmentTolerance
       self.collisionSound = collisionSound
       self.entityLimit = entityLimit
       self.forwardTo = forwardTo
@@ -278,8 +282,8 @@ public enum v0 {
     // ╚═════════╝
 
     private enum CodingKeys: String, CodingKey {
-      case hugEffect, fieldRadius, stackOffset, collisionSound, entityLimit, forwardTo, overflowTo
-      case yAlignmentTolerance, faceDirectionAlignment, grabHuggers
+      case hugEffect, fieldRadius, stackOffset, xzAlignmentTolerance, collisionSound, entityLimit,
+        forwardTo, overflowTo, yAlignmentTolerance, faceDirectionAlignment, grabHuggers
     }
 
     public init(from decoder: Decoder) throws {
@@ -289,6 +293,10 @@ public enum v0 {
       self.stackOffset = try SIMD3FloatCodable.decodeIfPresent(
         from: container,
         forKey: .stackOffset
+      )
+      self.xzAlignmentTolerance = try container.decodeIfPresent(
+        Float.self,
+        forKey: .xzAlignmentTolerance
       )
       self.collisionSound = try container.decodeIfPresent(SoundGroup.self, forKey: .collisionSound)
       self.entityLimit = try container.decodeIfPresent(Int.self, forKey: .entityLimit)
@@ -310,6 +318,7 @@ public enum v0 {
       try container.encodeIfPresent(self.hugEffect, forKey: .hugEffect)
       try container.encodeIfPresent(self.fieldRadius, forKey: .fieldRadius)
       try SIMD3FloatCodable.encodeIfPresent(self.stackOffset, to: &container, forKey: .stackOffset)
+      try container.encodeIfPresent(self.xzAlignmentTolerance, forKey: .xzAlignmentTolerance)
       try container.encodeIfPresent(self.collisionSound, forKey: .collisionSound)
       try container.encodeIfPresent(self.entityLimit, forKey: .entityLimit)
       try container.encodeIfPresent(self.forwardTo, forKey: .forwardTo)
@@ -324,6 +333,7 @@ public enum v0 {
       if self.hugEffect == nil { self.hugEffect = other.hugEffect }
       if self.fieldRadius == nil { self.fieldRadius = other.fieldRadius }
       if self.stackOffset == nil { self.stackOffset = other.stackOffset }
+      if self.xzAlignmentTolerance == nil { self.xzAlignmentTolerance = other.xzAlignmentTolerance }
       if self.collisionSound == nil { self.collisionSound = other.collisionSound }
       if self.entityLimit == nil { self.entityLimit = other.entityLimit }
       if self.forwardTo == nil { self.forwardTo = other.forwardTo }
@@ -340,6 +350,7 @@ public enum v0 {
       hugEffect: HugEffect.none,
       fieldRadius: 0.08,
       stackOffset: .zero,
+      xzAlignmentTolerance: 0.004,
       collisionSound: SoundGroup.none,
       entityLimit: -1,
       forwardTo: "",

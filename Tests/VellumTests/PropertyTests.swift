@@ -86,7 +86,7 @@ typealias MagneticFieldPartial = v0.MagneticFieldPartial
 struct MagneticFieldPartialTests {
   /// CoreMove with magneticField roundtrips through JSON
   @Test func coreMove_magneticField_roundTrip() throws {
-    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0])
+    let meta = MagneticFieldPartial(stackOffset: [0.01, 0, 0], xzAlignmentTolerance: 0.001)
     let coreMove = CoreMove(
       eid: EID.other(name: "TestMagnet"),
       target: .position([1, 0, 0]),
@@ -98,14 +98,12 @@ struct MagneticFieldPartialTests {
     let decoded = try decoder.decode(CoreMove.self, from: data)
     #expect(decoded.magneticField == meta)
     #expect(decoded.magneticField?.stackOffset == [0.01, 0, 0])
+    #expect(decoded.magneticField?.xzAlignmentTolerance == 0.001)
   }
 
   /// CoreMove without magneticField decodes magneticField as nil (backwards-compatible)
   @Test func coreMove_noMagneticField_decodesNil() throws {
-    let coreMove = CoreMove(
-      eid: EID.other(name: "TestMagnet"),
-      target: .position([1, 0, 0])
-    )
+    let coreMove = CoreMove(eid: EID.other(name: "TestMagnet"), target: .position([1, 0, 0]))
     let encoder = JSONEncoder()
     let decoder = JSONDecoder()
     let data = try encoder.encode(coreMove)
@@ -136,10 +134,7 @@ struct MagneticFieldPartialTests {
       position: [1, 0, 0],
       magneticField: meta
     )
-    var coreMove = CoreMove(
-      eid: EID.other(name: "TestMagnet"),
-      target: .position([2, 0, 0])
-    )
+    var coreMove = CoreMove(eid: EID.other(name: "TestMagnet"), target: .position([2, 0, 0]))
     #expect(coreMove.magneticField == nil)
     coreMove.fillInEmptyParts(with: initialState)
     #expect(coreMove.magneticField == meta)

@@ -243,6 +243,9 @@ public enum MoveHistoryHelpers {
           if changed.hugEffect != nil && f.hugEffect == nil { f.hugEffect = d.hugEffect }
           if changed.fieldRadius != nil && f.fieldRadius == nil { f.fieldRadius = d.fieldRadius }
           if changed.stackOffset != nil && f.stackOffset == nil { f.stackOffset = d.stackOffset }
+          if changed.xzAlignmentTolerance != nil && f.xzAlignmentTolerance == nil {
+            f.xzAlignmentTolerance = d.xzAlignmentTolerance
+          }
           if changed.collisionSound != nil && f.collisionSound == nil {
             f.collisionSound = d.collisionSound
           }
