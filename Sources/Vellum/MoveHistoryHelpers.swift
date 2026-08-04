@@ -208,7 +208,7 @@ public enum MoveHistoryHelpers {
           if eidsWithMovement.contains(coreMoveToUndo.eid) { continue }
           let previousSnapshot = Self.findPreviousCoreMove(
             search: coreMoveToUndo.eid,
-            searchThrough: searchThrough,
+            searchThrough: searchThrough + [v0.Move(chunksToUndo)],
             presetDic: presetDic,
             clonePresetDic: clonePresetDic
           )

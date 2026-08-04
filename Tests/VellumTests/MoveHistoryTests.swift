@@ -640,6 +640,37 @@ struct MoveToPreviousCoreMovesTests {
     )
   }
 
+  @Test func chess_undoCaptureSideEffect_restoresEarlierSquareOrdering() {
+    let WP1 = EID.other(name: "WP1")
+    let BP1 = EID.other(name: "BP1")
+    let A2 = EID.other(name: "A2")
+    let history = MoveHistory(moves: [
+      Move([
+        [
+          mock.coreMove(eid: "BP1", target: .magnet("A2")), CoreMove(eid: A2, huggers: [WP1, BP1]),
+        ],
+        [mock.coreMove(eid: "WP1", target: .magnet("MT2_1")), CoreMove(eid: A2, huggers: [BP1])],
+      ])
+    ])
+
+    let browseResult = history.browseHistory(
+      action: .undo,
+      animatingTowards: nil,
+      currentlyAnimating: nil,
+      presetDic: CHESS_PRESET_DIC
+    )
+    let firstUndoChunk: [CoreMove]? =
+      switch browseResult {
+      case .animateMoves(let movesAndNrs): movesAndNrs.first?.move.chunks.first
+      default: nil
+      }
+
+    #expect(
+      firstUndoChunk?.first(where: { $0.eid == A2 })?.huggers == [WP1, BP1],
+      "Undoing the capture side effect must restore the square ordering produced by the earlier chunk of the same move"
+    )
+  }
+
   /// Complex: undoing a move that carried a stack of cards reverts all stacked cards to their initial state
   @Test func cards_revertMove_andCarriedStack() {
     let INITIAL_POSITION: SIMD3<Float> = [0, 0, 0]
